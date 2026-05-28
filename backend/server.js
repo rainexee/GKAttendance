@@ -4,14 +4,16 @@ const mysql = require('mysql2');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
+
+require('dotenv').config();
 
 // Database connection pool
 const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root', // Change this to your MySQL username
-    password: '', // Change this to your MySQL password
-    database: 'gkattendance_db',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
