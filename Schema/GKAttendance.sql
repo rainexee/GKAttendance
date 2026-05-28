@@ -1,6 +1,8 @@
 CREATE SCHEMA IF NOT EXISTS GKAttendance;
 USE GKAttendance;
 
+DROP TABLE IF EXISTS Logging;
+
 CREATE TABLE IF NOT EXISTS Person(
 	user_id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(255),
@@ -24,10 +26,27 @@ CREATE TABLE IF NOT EXISTS GKLab(
     lab_name VARCHAR(255)
 );
 
+CREATE TABLE IF NOT EXISTS Logging(
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    date_logged DATETIME DEFAULT CURRENT_TIMESTAMP,
+    user_id INT,
+
+    FOREIGN KEY (user_id) REFERENCES Person(user_id)
+
+);
+
+CREATE TABLE IF NOT EXISTS Admins(
+    admin_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255),
+    password VARCHAR(255)
+);
+
+INSERT INTO Admins (username, password) VALUES ('admin', 'admin123');
+
 CREATE USER 'GKAttendance_LowPriority'@'localhost' IDENTIFIED BY 'n0root4u!';
 CREATE USER 'GKAttendance_SuperAdmin'@'localhost' IDENTIFIED BY 'f4llr00taccess!';
 
-GRANT ALL PRIVILEGES ON database_name.* TO 'GKAttendance_SuperAdmin'@'localhost';
+GRANT ALL PRIVILEGES ON GKAttendance.* TO 'GKAttendance_SuperAdmin'@'localhost';
 FLUSH PRIVILEGES;
 
 GRANT SELECT, INSERT, UPDATE ON GKAttendance.* TO 'public_lowprio'@'localhost';

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>GKAttendance - Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #0f172a;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+
+        /* Dashboard Layout */
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo-badge {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.3rem;
+            box-shadow: 0 8px 16px -4px rgba(59,130,246,0.3);
+        }
+
+        .logo-area h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .nav-item i {
+            width: 24px;
+            font-size: 1.2rem;
+        }
+
+        .nav-item.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            backdrop-filter: blur(4px);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .nav-item:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            color: #cbd5e1;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 2rem 2rem 2rem 2rem;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .admin-info {
+            background: rgba(30, 41, 59, 0.6);
+            padding: 8px 20px;
+            border-radius: 40px;
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .admin-info i {
+            font-size: 1.2rem;
+            color: #3b82f6;
+        }
+
+        .logout-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 30px;
+            color: #f87171;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 1.5rem;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #3b82f620, #8b5cf620);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .stat-icon i {
+            font-size: 1.6rem;
+            color: #60a5fa;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Table Panel */
+        .data-panel {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            padding: 1rem;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem 1rem 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .panel-header h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .search-box input {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 16px;
+            border-radius: 40px;
+            color: white;
+            outline: none;
+            width: 240px;
+        }
+
+        .search-box input:focus {
+            border-color: #3b82f6;
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+
+        .btn-export:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            color: #e2e8f0;
+        }
+
+        .badge-card {
+            background: rgba(59,130,246,0.2);
+            color: #93c5fd;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .empty-row td {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b;
+        }
+
+        /* Toggle section visibility */
+        .section-panel {
+            display: none;
+        }
+
+        .section-panel.active-section {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 80px;
+                padding: 1rem 0.5rem;
+            }
+            .sidebar .logo-area h2, .sidebar .nav-item span:not(i) {
+                display: none;
+            }
+            .logo-area {
+                justify-content: center;
+            }
+            .main-content {
+                margin-left: 80px;
+                padding: 1rem;
+            }
+            .nav-item {
+                justify-content: center;
+            }
+        }
+
+        .action-icon {
+            cursor: pointer;
+            color: #60a5fa;
+            margin: 0 4px;
+            transition: 0.2s;
+        }
+        .action-icon:hover {
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-container">
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="logo-area">
+            <div class="logo-badge">GK</div>
+            <h2>GKAttendance</h2>
+        </div>
+        <div class="nav-menu">
+            <div class="nav-item active" data-tab="users">
+                <i class="fas fa-users"></i>
+                <span>Registered People</span>
+            </div>
+            <div class="nav-item" data-tab="logs">
+                <i class="fas fa-history"></i>
+                <span>Card Scan Logs</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="dashboard-header">
+            <div class="page-title" id="dynamic-title">Registered People</div>
+            <div class="admin-info">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin • GK Portal</span>
+                <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+
+        <!-- Stats Cards (dynamic counts) -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-user-plus"></i></div>
+                <div class="stat-value" id="totalUsersStat">0</div>
+                <div class="stat-label">Total Sign-ups</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-id-card"></i></div>
+                <div class="stat-value" id="totalLogsStat">0</div>
+                <div class="stat-label">Card Scan Entries</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                <div class="stat-value" id="todayLogsStat">0</div>
+                <div class="stat-label">Today's Scans</div>
+            </div>
+        </div>
+
+        <!-- Panel: Registered Users Section -->
+        <div id="usersPanel" class="section-panel active-section">
+            <div class="data-panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-address-card"></i> People Who Signed Up</h3>
+                    <div class="search-box">
+                        <input type="text" id="userSearch" placeholder="Search by name, email, card..." autocomplete="off">
+                        <button class="btn-export" id="exportUsersBtn"><i class="fas fa-download"></i> Export Users CSV</button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table id="usersTable">
+                        <thead>
+                            <tr><th>ID</th><th>Full Name</th><th>Email</th><th>Card UID</th><th>Registered On</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr class="empty-row"><td colspan="6">Loading registered users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel: Card Scan Logs Section -->
+        <div id="logsPanel" class="section-panel">
+            <div class="data-panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-id-card"></i> Card Input / Scan Logs</h3>
+                    <div class="search-box">
+                        <input type="text" id="logSearch" placeholder="Search by name or card UID..." autocomplete="off">
+                        <button class="btn-export" id="exportLogsBtn"><i class="fas fa-file-csv"></i> Export Logs CSV</button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table id="logsTable">
+                        <thead>
+                            <tr><th>Log ID</th><th>Person Name</th><th>Card UID</th><th>Scan Timestamp</th><th>Device/Note</th></tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                            <tr class="empty-row"><td colspan="5">No scan logs found.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+// Replace the entire script section in adminDashboard.html with this:
+
+<script>
+    // API Base URL
+    const API_BASE_URL = window.location.origin;
+    
+    // Global data stores
+    let personsData = [];
+    let logsData = [];
+    
+    // Helper function for API calls
+    async function apiCall(endpoint, options = {}) {
+        try {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.message || 'API call failed');
+            }
+            
+            return data;
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+    
+    // Fetch persons from database
+    async function fetchPersons() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/persons`);
+            const data = await response.json();
+            
+            if (data.success) {
+                personsData = data.data;
+                return personsData;
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching persons:', error);
+            return [];
+        }
+    }
+    
+    // Fetch logs from database
+    async function fetchLogs() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/logs`);
+            const data = await response.json();
+            
+            if (data.success) {
+                logsData = data.data;
+                return logsData;
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching logs:', error);
+            return [];
+        }
+    }
+    
+    // Fetch stats from database
+    async function fetchStats() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/stats`);
+            const data = await response.json();
+            
+            if (data.success) {
+                return data.data;
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching stats:', error);
+            return { totalUsers: 0, totalLogs: 0, todayLogs: 0 };
+        }
+    }
+    
+    // Update stats counters
+    async function updateStats() {
+        const stats = await fetchStats();
+        document.getElementById('totalUsersStat').innerText = stats.totalUsers || 0;
+        document.getElementById('totalLogsStat').innerText = stats.totalLogs || 0;
+        document.getElementById('todayLogsStat').innerText = stats.todayLogs || 0;
+    }
+    
+    // Render Users Table with search
+    async function renderUsersTable() {
+        const users = await fetchPersons();
+        const searchTerm = document.getElementById('userSearch')?.value.toLowerCase() || '';
+        
+        const filtered = users.filter(u => 
+            (u.full_name && u.full_name.toLowerCase().includes(searchTerm)) || 
+            (u.email && u.email.toLowerCase().includes(searchTerm)) ||
+            (u.username && u.username.toLowerCase().includes(searchTerm))
+        );
+        
+        const tbody = document.getElementById('usersTableBody');
+        if (!tbody) return;
+        
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No registered users found.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = filtered.map(user => `
+            <tr>
+                <td>${escapeHtml(String(user.user_id || ''))}</td>
+                <td><strong>${escapeHtml(user.full_name || 'N/A')}</strong></td>
+                <td>${escapeHtml(user.email || 'N/A')}</td>
+                <td><span class="badge-card">CARD-${escapeHtml(String(user.user_id || ''))}</span></td>
+                <td>${formatDate(user.created_at) || 'N/A'}</td>
+                <td><i class="fas fa-check-circle" style="color:#10b981;"></i> Active</td>
+            </tr>
+        `).join('');
+    }
+    
+    // Render Logs Table with search
+    async function renderLogsTable() {
+        const logs = await fetchLogs();
+        const searchTerm = document.getElementById('logSearch')?.value.toLowerCase() || '';
+        
+        let filtered = logs;
+        if (searchTerm) {
+            filtered = logs.filter(l => 
+                (l.personName && l.personName.toLowerCase().includes(searchTerm)) || 
+                (l.cardUid && l.cardUid.toLowerCase().includes(searchTerm))
+            );
+        }
+        
+        const tbody = document.getElementById('logsTableBody');
+        if (!tbody) return;
+        
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No card scan logs found.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = filtered.map(log => `
+            <tr>
+                <td>${escapeHtml(log.logId || '')}</td>
+                <td><i class="fas fa-user-check" style="color:#60a5fa; margin-right:6px;"></i>${escapeHtml(log.personName || 'Unknown')}</td>
+                <td><span class="badge-card">${escapeHtml(log.cardUid || 'N/A')}</span></td>
+                <td>${formatDate(log.timestamp)}</td>
+                <td>${escapeHtml(log.device || 'Card Reader')}</td>
+            </tr>
+        `).join('');
+    }
+    
+    function formatDate(isoString) {
+        if (!isoString) return 'N/A';
+        try {
+            const d = new Date(isoString);
+            return d.toLocaleString(undefined, { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+        } catch (e) {
+            return isoString;
+        }
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    // Export Users to CSV
+    async function exportUsersCSV() {
+        const users = await fetchPersons();
+        if (users.length === 0) {
+            alert('No users to export');
+            return;
+        }
+        
+        let csvContent = "\uFEFFUser ID,Full Name,Username,Email,Role,Lab\n";
+        users.forEach(user => {
+            csvContent += `"${user.user_id || ''}","${user.full_name || ''}","${user.username || ''}","${user.email || ''}","${user.role_name || ''}","${user.lab_name || ''}"\n`;
+        });
+        
+        downloadCSV(csvContent, `gk_users_${new Date().toISOString().slice(0,19)}.csv`);
+    }
+    
+    // Export Logs to CSV
+    async function exportLogsCSV() {
+        const logs = await fetchLogs();
+        if (logs.length === 0) {
+            alert('No logs to export');
+            return;
+        }
+        
+        let csvContent = "\uFEFFLog ID,Person Name,Card UID,Timestamp,Device\n";
+        logs.forEach(log => {
+            csvContent += `"${log.logId || ''}","${log.personName || ''}","${log.cardUid || ''}","${log.timestamp || ''}","${log.device || ''}"\n`;
+        });
+        
+        downloadCSV(csvContent, `gk_logs_${new Date().toISOString().slice(0,19)}.csv`);
+    }
+    
+    function downloadCSV(content, filename) {
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+    
+    // Tab switching logic
+    function switchTab(tabId) {
+        document.querySelectorAll('.section-panel').forEach(panel => panel.classList.remove('active-section'));
+        document.getElementById(`${tabId}Panel`).classList.add('active-section');
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        document.querySelector(`.nav-item[data-tab="${tabId}"]`).classList.add('active');
+        const title = tabId === 'users' ? 'Registered People' : 'Card Scan Logs';
+        document.getElementById('dynamic-title').innerText = title;
+        
+        if (tabId === 'users') {
+            renderUsersTable();
+        } else {
+            renderLogsTable();
+        }
+    }
+    
+    // Check if user is logged in
+    function checkAuth() {
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            // Redirect to login if not authenticated
+            window.location.href = '/login';
+        }
+    }
+    
+    // Logout function
+    function logout() {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminId');
+        alert('Logged out successfully');
+        window.location.href = '/login';
+    }
+    
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', async () => {
+        //checkAuth();
+        
+        // Show loading state
+        document.getElementById('usersTableBody').innerHTML = '<tr class="empty-row"><td colspan="6">Loading...</td></tr>';
+        
+        await updateStats();
+        await renderUsersTable();
+        await renderLogsTable();
+        
+        // Nav listeners
+        document.querySelectorAll('.nav-item').forEach(nav => {
+            nav.addEventListener('click', (e) => {
+                const tab = nav.getAttribute('data-tab');
+                switchTab(tab);
+            });
+        });
+        
+        // Search users
+        const userSearch = document.getElementById('userSearch');
+        if (userSearch) {
+            userSearch.addEventListener('input', () => renderUsersTable());
+        }
+        
+        const logSearch = document.getElementById('logSearch');
+        if (logSearch) {
+            logSearch.addEventListener('input', () => renderLogsTable());
+        }
+        
+        // Export buttons
+        document.getElementById('exportUsersBtn')?.addEventListener('click', exportUsersCSV);
+        document.getElementById('exportLogsBtn')?.addEventListener('click', exportLogsCSV);
+        
+        // Logout button
+        document.getElementById('logoutBtn')?.addEventListener('click', logout);
+        
+        // Auto-refresh every 30 seconds
+        setInterval(async () => {
+            await updateStats();
+            const activeTab = document.querySelector('.section-panel.active-section').id;
+            if (activeTab === 'usersPanel') {
+                await renderUsersTable();
+            } else {
+                await renderLogsTable();
+            }
+        }, 30000);
+    });
+</script>
+</body>
+</html>
