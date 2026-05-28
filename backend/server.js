@@ -3,14 +3,14 @@ const cors = require('cors');
 const mysql = require('mysql2');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 // Database connection pool
 const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root', // Change this to your MySQL username
-    password: '', // Change this to your MySQL password
-    database: 'gkattendance_db',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -31,25 +31,25 @@ app.get('/api/health', (req, res) => {
 // Admin Login Endpoint
 app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
-    
+
     try {
         // Query the database for the user
         // Note: In production, always compare hashed passwords (e.g., using bcrypt)
         const [rows] = await promisePool.query(
-            'SELECT * FROM admins WHERE username = ? AND password = ?',
+            'SELECT * FROM Person WHERE username = ? AND password = ?',
             [username, password]
         );
-        
+
         if (rows.length > 0) {
-            res.status(200).json({ 
-                success: true, 
+            res.status(200).json({
+                success: true,
                 message: 'Login successful',
                 token: 'mock-jwt-token-xyz789' // In production, generate a real JWT
             });
         } else {
-            res.status(401).json({ 
-                success: false, 
-                message: 'Invalid username or password' 
+            res.status(401).json({
+                success: false,
+                message: 'Invalid username or password'
             });
         }
     } catch (error) {
@@ -63,5 +63,5 @@ app.post('/api/admin/login', async (req, res) => {
 
 // Start Server
 app.listen(PORT, () => {
-    console.log(`🚀 GKAttendance Backend running on http://localhost:${PORT}`);
+    console.log(`GKAttendance Backend running on http://localhost:${PORT}`);
 });
