@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>GKAttendance - Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #0f172a;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+
+        /* Dashboard Layout */
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo-badge {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.3rem;
+            box-shadow: 0 8px 16px -4px rgba(59,130,246,0.3);
+        }
+
+        .logo-area h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .nav-item i {
+            width: 24px;
+            font-size: 1.2rem;
+        }
+
+        .nav-item.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            backdrop-filter: blur(4px);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .nav-item:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            color: #cbd5e1;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 2rem 2rem 2rem 2rem;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .admin-info {
+            background: rgba(30, 41, 59, 0.6);
+            padding: 8px 20px;
+            border-radius: 40px;
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .admin-info i {
+            font-size: 1.2rem;
+            color: #3b82f6;
+        }
+
+        .logout-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 30px;
+            color: #f87171;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 1.5rem;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #3b82f620, #8b5cf620);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .stat-icon i {
+            font-size: 1.6rem;
+            color: #60a5fa;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Table Panel */
+        .data-panel {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            padding: 1rem;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem 1rem 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .panel-header h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .search-box input {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 16px;
+            border-radius: 40px;
+            color: white;
+            outline: none;
+            width: 240px;
+        }
+
+        .search-box input:focus {
+            border-color: #3b82f6;
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+
+        .btn-export:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            color: #e2e8f0;
+        }
+
+        .badge-card {
+            background: rgba(59,130,246,0.2);
+            color: #93c5fd;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .empty-row td {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b;
+        }
+
+        /* Toggle section visibility */
+        .section-panel {
+            display: none;
+        }
+
+        .section-panel.active-section {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 80px;
+                padding: 1rem 0.5rem;
+            }
+            .sidebar .logo-area h2, .sidebar .nav-item span:not(i) {
+                display: none;
+            }
+            .logo-area {
+                justify-content: center;
+            }
+            .main-content {
+                margin-left: 80px;
+                padding: 1rem;
+            }
+            .nav-item {
+                justify-content: center;
+            }
+        }
+
+        .action-icon {
+            cursor: pointer;
+            color: #60a5fa;
+            margin: 0 4px;
+            transition: 0.2s;
+        }
+        .action-icon:hover {
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-container">
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="logo-area">
+            <div class="logo-badge">GK</div>
+            <h2>GKAttendance</h2>
+        </div>
+        <div class="nav-menu">
+            <div class="nav-item active" data-tab="users">
+                <i class="fas fa-users"></i>
+                <span>Registered People</span>
+            </div>
+            <div class="nav-item" data-tab="logs">
+                <i class="fas fa-history"></i>
+                <span>Card Scan Logs</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="dashboard-header">
+            <div class="page-title" id="dynamic-title">Registered People</div>
+            <div class="admin-info">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin • GK Portal</span>
+                <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+
+        <!-- Stats Cards (dynamic counts) -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-user-plus"></i></div>
+                <div class="stat-value" id="totalUsersStat">0</div>
+                <div class="stat-label">Total Sign-ups</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-id-card"></i></div>
+                <div class="stat-value" id="totalLogsStat">0</div>
+                <div class="stat-label">Card Scan Entries</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                <div class="stat-value" id="todayLogsStat">0</div>
+                <div class="stat-label">Today's Scans</div>
+            </div>
+        </div>
+
+        <!-- Panel: Registered Users Section -->
+        <div id="usersPanel" class="section-panel active-section">
+            <div class="data-panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-address-card"></i> People Who Signed Up</h3>
+                    <div class="search-box">
+                        <input type="text" id="userSearch" placeholder="Search by name, email, card..." autocomplete="off">
+                        <button class="btn-export" id="exportUsersBtn"><i class="fas fa-download"></i> Export Users CSV</button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table id="usersTable">
+                        <thead>
+                            <tr><th>ID</th><th>Full Name</th><th>Email</th><th>Card UID</th><th>Registered On</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr class="empty-row"><td colspan="6">Loading registered users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel: Card Scan Logs Section -->
+        <div id="logsPanel" class="section-panel">
+            <div class="data-panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-id-card"></i> Card Input / Scan Logs</h3>
+                    <div class="search-box">
+                        <input type="text" id="logSearch" placeholder="Search by name or card UID..." autocomplete="off">
+                        <button class="btn-export" id="exportLogsBtn"><i class="fas fa-file-csv"></i> Export Logs CSV</button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table id="logsTable">
+                        <thead>
+                            <tr><th>Log ID</th><th>Person Name</th><th>Card UID</th><th>Scan Timestamp</th><th>Device/Note</th></tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                            <tr class="empty-row"><td colspan="5">No scan logs found.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- MOCK / DEMO DATA STRUCTURE (dynamic but persistent in localStorage) ----------
+    // For a realistic dashboard, we simulate registered users and card scan logs.
+    // In real scenario, backend would provide API. Here, we initialize with demo data but allow "sign-up" simulation via storage.
+    
+    // Initialize default data if not exists
+    if (!localStorage.getItem('gk_users')) {
+        const defaultUsers = [
+            { id: "USR-1001", fullName: "Alex Johnson", email: "alex.j@example.com", cardUid: "F3A2:1C4B:90E5", registeredAt: "2025-02-10T09:23:00Z", status: "active" },
+            { id: "USR-1002", fullName: "Maria Garcia", email: "maria.g@example.com", cardUid: "B7D9:2A1F:44C8", registeredAt: "2025-02-12T14:15:00Z", status: "active" },
+            { id: "USR-1003", fullName: "James Smith", email: "james.s@example.com", cardUid: "9E3C:8D2B:71F0", registeredAt: "2025-02-14T11:42:00Z", status: "active" },
+            { id: "USR-1004", fullName: "Linda Zhao", email: "linda.z@example.com", cardUid: "4A1F:6E9C:22D3", registeredAt: "2025-03-01T08:30:00Z", status: "active" }
+        ];
+        localStorage.setItem('gk_users', JSON.stringify(defaultUsers));
+    }
+    
+    if (!localStorage.getItem('gk_card_logs')) {
+        const now = new Date();
+        const todayStr = now.toISOString().slice(0,10);
+        const yesterday = new Date(now); yesterday.setDate(now.getDate()-1);
+        const defaultLogs = [
+            { logId: "LOG001", personName: "Alex Johnson", cardUid: "F3A2:1C4B:90E5", timestamp: new Date().toISOString(), device: "Main Entrance Reader" },
+            { logId: "LOG002", personName: "Maria Garcia", cardUid: "B7D9:2A1F:44C8", timestamp: new Date(Date.now() - 3600000).toISOString(), device: "Office Door" },
+            { logId: "LOG003", personName: "James Smith", cardUid: "9E3C:8D2B:71F0", timestamp: yesterday.toISOString(), device: "Parking Gate" },
+            { logId: "LOG004", personName: "Linda Zhao", cardUid: "4A1F:6E9C:22D3", timestamp: new Date(Date.now() - 7200000).toISOString(), device: "Main Entrance Reader" }
+        ];
+        localStorage.setItem('gk_card_logs', JSON.stringify(defaultLogs));
+    }
+    
+    // Helper functions
+    function getUsers() {
+        return JSON.parse(localStorage.getItem('gk_users')) || [];
+    }
+    
+    function getLogs() {
+        return JSON.parse(localStorage.getItem('gk_card_logs')) || [];
+    }
+    
+    function saveUsers(users) {
+        localStorage.setItem('gk_users', JSON.stringify(users));
+    }
+    
+    function saveLogs(logs) {
+        localStorage.setItem('gk_card_logs', JSON.stringify(logs));
+    }
+    
+    // Update stats counters
+    function updateStats() {
+        const users = getUsers();
+        const logs = getLogs();
+        const today = new Date().toISOString().slice(0,10);
+        const todayLogs = logs.filter(log => log.timestamp.startsWith(today));
+        document.getElementById('totalUsersStat').innerText = users.length;
+        document.getElementById('totalLogsStat').innerText = logs.length;
+        document.getElementById('todayLogsStat').innerText = todayLogs.length;
+    }
+    
+    // Render Users Table with search
+    function renderUsersTable() {
+        const users = getUsers();
+        const searchTerm = document.getElementById('userSearch')?.value.toLowerCase() || '';
+        const filtered = users.filter(u => 
+            u.fullName.toLowerCase().includes(searchTerm) || 
+            u.email.toLowerCase().includes(searchTerm) || 
+            u.cardUid.toLowerCase().includes(searchTerm) ||
+            u.id.toLowerCase().includes(searchTerm)
+        );
+        const tbody = document.getElementById('usersTableBody');
+        if (!tbody) return;
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No registered users match.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = filtered.map(user => `
+            <tr>
+                <td>${escapeHtml(user.id)}</td>
+                <td><strong>${escapeHtml(user.fullName)}</strong></td>
+                <td>${escapeHtml(user.email)}</td>
+                <td><span class="badge-card">${escapeHtml(user.cardUid)}</span></td>
+                <td>${formatDate(user.registeredAt)}</td>
+                <td><i class="fas fa-check-circle" style="color:#10b981;"></i> Active</td>
+            </tr>
+        `).join('');
+    }
+    
+    // Render Logs Table with search (by person name or card uid)
+    function renderLogsTable() {
+        let logs = getLogs();
+        const searchTerm = document.getElementById('logSearch')?.value.toLowerCase() || '';
+        // enrich logs with user mapping for better search (we join users data)
+        const users = getUsers();
+        const enrichedLogs = logs.map(log => {
+            const matchedUser = users.find(u => u.cardUid === log.cardUid);
+            return {
+                ...log,
+                displayName: matchedUser ? matchedUser.fullName : log.personName || "Unknown"
+            };
+        });
+        let filtered = enrichedLogs;
+        if (searchTerm) {
+            filtered = enrichedLogs.filter(l => 
+                l.displayName.toLowerCase().includes(searchTerm) || 
+                l.cardUid.toLowerCase().includes(searchTerm)
+            );
+        }
+        const tbody = document.getElementById('logsTableBody');
+        if (!tbody) return;
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No card scan logs found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = filtered.map(log => `
+            <tr>
+                <td>${escapeHtml(log.logId)}</td>
+                <td><i class="fas fa-user-check" style="color:#60a5fa; margin-right:6px;"></i>${escapeHtml(log.displayName)}</td>
+                <td><span class="badge-card">${escapeHtml(log.cardUid)}</span></td>
+                <td>${formatDate(log.timestamp)}</td>
+                <td>${escapeHtml(log.device || "Card Reader")}</td>
+            </tr>
+        `).join('');
+    }
+    
+    function formatDate(isoString) {
+        if (!isoString) return 'N/A';
+        const d = new Date(isoString);
+        return d.toLocaleString(undefined, { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    // Export to CSV helper
+    function exportToCSV(data, columns, filename) {
+        let csvRows = [];
+        csvRows.push(columns.map(c => `"${c.label}"`).join(','));
+        for (const row of data) {
+            const values = columns.map(col => {
+                let val = row[col.key] !== undefined ? row[col.key] : '';
+                if (col.key === 'registeredAt' || col.key === 'timestamp') val = formatDate(val);
+                if (col.key === 'status') val = 'Active';
+                return `"${String(val).replace(/"/g, '""')}"`;
+            });
+            csvRows.push(values.join(','));
+        }
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+    
+    // Export Users
+    function exportUsersCSV() {
+        const users = getUsers();
+        const columns = [
+            { label: 'User ID', key: 'id' },
+            { label: 'Full Name', key: 'fullName' },
+            { label: 'Email', key: 'email' },
+            { label: 'Card UID', key: 'cardUid' },
+            { label: 'Registration Date', key: 'registeredAt' },
+            { label: 'Status', key: 'status' }
+        ];
+        const exportData = users.map(u => ({ ...u, status: 'Active' }));
+        exportToCSV(exportData, columns, `gk_users_${new Date().toISOString().slice(0,19)}.csv`);
+    }
+    
+    // Export Logs
+    function exportLogsCSV() {
+        const logs = getLogs();
+        const users = getUsers();
+        const enriched = logs.map(log => {
+            const user = users.find(u => u.cardUid === log.cardUid);
+            return {
+                logId: log.logId,
+                personName: user ? user.fullName : (log.personName || 'Unknown'),
+                cardUid: log.cardUid,
+                timestamp: log.timestamp,
+                device: log.device || 'Card Reader'
+            };
+        });
+        const columns = [
+            { label: 'Log ID', key: 'logId' },
+            { label: 'Person Name', key: 'personName' },
+            { label: 'Card UID', key: 'cardUid' },
+            { label: 'Scan Timestamp', key: 'timestamp' },
+            { label: 'Device/Location', key: 'device' }
+        ];
+        exportToCSV(enriched, columns, `gk_cardlogs_${new Date().toISOString().slice(0,19)}.csv`);
+    }
+    
+    // Simulate adding demo log (optional: but to give live feel, allow new scan via a hidden mechanism? but dashboard is view/export.
+    // Also we add ability to clear session? but we keep data integrity.
+    // Provide additional "add sample scan" - For interactive demo, we can add a floating action? Not needed but nice.
+    // Since this is admin dashboard, we provide realtime updates.
+    
+    // Tab switching logic
+    function switchTab(tabId) {
+        document.querySelectorAll('.section-panel').forEach(panel => panel.classList.remove('active-section'));
+        document.getElementById(`${tabId}Panel`).classList.add('active-section');
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        document.querySelector(`.nav-item[data-tab="${tabId}"]`).classList.add('active');
+        const title = tabId === 'users' ? 'Registered People' : 'Card Scan Logs';
+        document.getElementById('dynamic-title').innerText = title;
+        
+        if (tabId === 'users') {
+            renderUsersTable();
+        } else {
+            renderLogsTable();
+        }
+    }
+    
+    // Event listeners & initialization
+    document.addEventListener('DOMContentLoaded', () => {
+        updateStats();
+        renderUsersTable();
+        renderLogsTable();
+        
+        // Nav listeners
+        document.querySelectorAll('.nav-item').forEach(nav => {
+            nav.addEventListener('click', (e) => {
+                const tab = nav.getAttribute('data-tab');
+                switchTab(tab);
+            });
+        });
+        
+        // Search users
+        const userSearch = document.getElementById('userSearch');
+        if (userSearch) {
+            userSearch.addEventListener('input', () => renderUsersTable());
+        }
+        const logSearch = document.getElementById('logSearch');
+        if (logSearch) {
+            logSearch.addEventListener('input', () => renderLogsTable());
+        }
+        
+        // Export buttons
+        document.getElementById('exportUsersBtn')?.addEventListener('click', exportUsersCSV);
+        document.getElementById('exportLogsBtn')?.addEventListener('click', exportLogsCSV);
+        
+        // Logout simulation (redirect to login page)
+        document.getElementById('logoutBtn')?.addEventListener('click', () => {
+            // In real scenario, clear session, redirect to login.
+            alert('Logged out successfully. Redirecting to login...');
+            window.location.href = 'admin.html'; // back to login mock page
+        });
+        
+        // Add refresh listeners for stats update when data changes (in case any admin actions later)
+        // Since there is no "add user" here directly but we can allow refresh after manual localstorage changes.
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'gk_users' || e.key === 'gk_card_logs') {
+                updateStats();
+                renderUsersTable();
+                renderLogsTable();
+            }
+        });
+        
+        // Add optional button to stimulate a new card scan? Not mandatory but for demonstration we can embed a small simulate.
+        // However requirement only: view, monitor, export logs from card input. So this admin dashboard fully enables monitoring.
+        // Show current active panel.
+    });
+    
+    // Provide ability to keep data consistent if needed to add "simulate scan" for admin testing (just for preview)
+    // but not required for core feature, however adds usability: We add a small floating plus? no.
+    // Also ensure that the mock card logs show actual people who signed up via correlation.
+    // Additionally, add a demo note: Any new sign-ups would be added via external registration system; our dashboard displays all.
+    // For completeness, users can see and export.
+</script>
+</body>
+</html>

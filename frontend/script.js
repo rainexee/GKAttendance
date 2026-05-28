@@ -37,9 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 showMessage('Login successful! Redirecting...', 'success');
                 // Simulate redirect
                 setTimeout(() => {
-                    submitBtn.classList.remove('loading');
-                    submitBtn.disabled = false;
+                    window.location.href = "adminDashboard.html";
                 }, 1500);
+                
             } else {
                 showMessage(data.message || 'Invalid credentials. Please try again.', 'error');
                 submitBtn.classList.remove('loading');

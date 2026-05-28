@@ -28,6 +28,10 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'GKAttendance API is running' });
 });
 
+app.get('/', (req,res) => {
+
+});
+
 // Admin Login Endpoint
 app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
