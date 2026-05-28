@@ -459,137 +459,177 @@
     </div>
 </div>
 
+// Replace the entire script section in adminDashboard.html with this:
+
 <script>
-    // ---------- MOCK / DEMO DATA STRUCTURE (dynamic but persistent in localStorage) ----------
-    // For a realistic dashboard, we simulate registered users and card scan logs.
-    // In real scenario, backend would provide API. Here, we initialize with demo data but allow "sign-up" simulation via storage.
+    // API Base URL
+    const API_BASE_URL = window.location.origin;
     
-    // Initialize default data if not exists
-    if (!localStorage.getItem('gk_users')) {
-        const defaultUsers = [
-            { id: "USR-1001", fullName: "Alex Johnson", email: "alex.j@example.com", cardUid: "F3A2:1C4B:90E5", registeredAt: "2025-02-10T09:23:00Z", status: "active" },
-            { id: "USR-1002", fullName: "Maria Garcia", email: "maria.g@example.com", cardUid: "B7D9:2A1F:44C8", registeredAt: "2025-02-12T14:15:00Z", status: "active" },
-            { id: "USR-1003", fullName: "James Smith", email: "james.s@example.com", cardUid: "9E3C:8D2B:71F0", registeredAt: "2025-02-14T11:42:00Z", status: "active" },
-            { id: "USR-1004", fullName: "Linda Zhao", email: "linda.z@example.com", cardUid: "4A1F:6E9C:22D3", registeredAt: "2025-03-01T08:30:00Z", status: "active" }
-        ];
-        localStorage.setItem('gk_users', JSON.stringify(defaultUsers));
+    // Global data stores
+    let personsData = [];
+    let logsData = [];
+    
+    // Helper function for API calls
+    async function apiCall(endpoint, options = {}) {
+        try {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.message || 'API call failed');
+            }
+            
+            return data;
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
     }
     
-    if (!localStorage.getItem('gk_card_logs')) {
-        const now = new Date();
-        const todayStr = now.toISOString().slice(0,10);
-        const yesterday = new Date(now); yesterday.setDate(now.getDate()-1);
-        const defaultLogs = [
-            { logId: "LOG001", personName: "Alex Johnson", cardUid: "F3A2:1C4B:90E5", timestamp: new Date().toISOString(), device: "Main Entrance Reader" },
-            { logId: "LOG002", personName: "Maria Garcia", cardUid: "B7D9:2A1F:44C8", timestamp: new Date(Date.now() - 3600000).toISOString(), device: "Office Door" },
-            { logId: "LOG003", personName: "James Smith", cardUid: "9E3C:8D2B:71F0", timestamp: yesterday.toISOString(), device: "Parking Gate" },
-            { logId: "LOG004", personName: "Linda Zhao", cardUid: "4A1F:6E9C:22D3", timestamp: new Date(Date.now() - 7200000).toISOString(), device: "Main Entrance Reader" }
-        ];
-        localStorage.setItem('gk_card_logs', JSON.stringify(defaultLogs));
+    // Fetch persons from database
+    async function fetchPersons() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/persons`);
+            const data = await response.json();
+            
+            if (data.success) {
+                personsData = data.data;
+                return personsData;
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching persons:', error);
+            return [];
+        }
     }
     
-    // Helper functions
-    function getUsers() {
-        return JSON.parse(localStorage.getItem('gk_users')) || [];
+    // Fetch logs from database
+    async function fetchLogs() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/logs`);
+            const data = await response.json();
+            
+            if (data.success) {
+                logsData = data.data;
+                return logsData;
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching logs:', error);
+            return [];
+        }
     }
     
-    function getLogs() {
-        return JSON.parse(localStorage.getItem('gk_card_logs')) || [];
-    }
-    
-    function saveUsers(users) {
-        localStorage.setItem('gk_users', JSON.stringify(users));
-    }
-    
-    function saveLogs(logs) {
-        localStorage.setItem('gk_card_logs', JSON.stringify(logs));
+    // Fetch stats from database
+    async function fetchStats() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/stats`);
+            const data = await response.json();
+            
+            if (data.success) {
+                return data.data;
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching stats:', error);
+            return { totalUsers: 0, totalLogs: 0, todayLogs: 0 };
+        }
     }
     
     // Update stats counters
-    function updateStats() {
-        const users = getUsers();
-        const logs = getLogs();
-        const today = new Date().toISOString().slice(0,10);
-        const todayLogs = logs.filter(log => log.timestamp.startsWith(today));
-        document.getElementById('totalUsersStat').innerText = users.length;
-        document.getElementById('totalLogsStat').innerText = logs.length;
-        document.getElementById('todayLogsStat').innerText = todayLogs.length;
+    async function updateStats() {
+        const stats = await fetchStats();
+        document.getElementById('totalUsersStat').innerText = stats.totalUsers || 0;
+        document.getElementById('totalLogsStat').innerText = stats.totalLogs || 0;
+        document.getElementById('todayLogsStat').innerText = stats.todayLogs || 0;
     }
     
     // Render Users Table with search
-    function renderUsersTable() {
-        const users = getUsers();
+    async function renderUsersTable() {
+        const users = await fetchPersons();
         const searchTerm = document.getElementById('userSearch')?.value.toLowerCase() || '';
+        
         const filtered = users.filter(u => 
-            u.fullName.toLowerCase().includes(searchTerm) || 
-            u.email.toLowerCase().includes(searchTerm) || 
-            u.cardUid.toLowerCase().includes(searchTerm) ||
-            u.id.toLowerCase().includes(searchTerm)
+            (u.full_name && u.full_name.toLowerCase().includes(searchTerm)) || 
+            (u.email && u.email.toLowerCase().includes(searchTerm)) ||
+            (u.username && u.username.toLowerCase().includes(searchTerm))
         );
+        
         const tbody = document.getElementById('usersTableBody');
         if (!tbody) return;
+        
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No registered users match.</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No registered users found.</td></tr>';
             return;
         }
+        
         tbody.innerHTML = filtered.map(user => `
             <tr>
-                <td>${escapeHtml(user.id)}</td>
-                <td><strong>${escapeHtml(user.fullName)}</strong></td>
-                <td>${escapeHtml(user.email)}</td>
-                <td><span class="badge-card">${escapeHtml(user.cardUid)}</span></td>
-                <td>${formatDate(user.registeredAt)}</td>
+                <td>${escapeHtml(String(user.user_id || ''))}</td>
+                <td><strong>${escapeHtml(user.full_name || 'N/A')}</strong></td>
+                <td>${escapeHtml(user.email || 'N/A')}</td>
+                <td><span class="badge-card">CARD-${escapeHtml(String(user.user_id || ''))}</span></td>
+                <td>${formatDate(user.created_at) || 'N/A'}</td>
                 <td><i class="fas fa-check-circle" style="color:#10b981;"></i> Active</td>
             </tr>
         `).join('');
     }
     
-    // Render Logs Table with search (by person name or card uid)
-    function renderLogsTable() {
-        let logs = getLogs();
+    // Render Logs Table with search
+    async function renderLogsTable() {
+        const logs = await fetchLogs();
         const searchTerm = document.getElementById('logSearch')?.value.toLowerCase() || '';
-        // enrich logs with user mapping for better search (we join users data)
-        const users = getUsers();
-        const enrichedLogs = logs.map(log => {
-            const matchedUser = users.find(u => u.cardUid === log.cardUid);
-            return {
-                ...log,
-                displayName: matchedUser ? matchedUser.fullName : log.personName || "Unknown"
-            };
-        });
-        let filtered = enrichedLogs;
+        
+        let filtered = logs;
         if (searchTerm) {
-            filtered = enrichedLogs.filter(l => 
-                l.displayName.toLowerCase().includes(searchTerm) || 
-                l.cardUid.toLowerCase().includes(searchTerm)
+            filtered = logs.filter(l => 
+                (l.personName && l.personName.toLowerCase().includes(searchTerm)) || 
+                (l.cardUid && l.cardUid.toLowerCase().includes(searchTerm))
             );
         }
+        
         const tbody = document.getElementById('logsTableBody');
         if (!tbody) return;
+        
         if (filtered.length === 0) {
             tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No card scan logs found.</td></tr>';
             return;
         }
+        
         tbody.innerHTML = filtered.map(log => `
             <tr>
-                <td>${escapeHtml(log.logId)}</td>
-                <td><i class="fas fa-user-check" style="color:#60a5fa; margin-right:6px;"></i>${escapeHtml(log.displayName)}</td>
-                <td><span class="badge-card">${escapeHtml(log.cardUid)}</span></td>
+                <td>${escapeHtml(log.logId || '')}</td>
+                <td><i class="fas fa-user-check" style="color:#60a5fa; margin-right:6px;"></i>${escapeHtml(log.personName || 'Unknown')}</td>
+                <td><span class="badge-card">${escapeHtml(log.cardUid || 'N/A')}</span></td>
                 <td>${formatDate(log.timestamp)}</td>
-                <td>${escapeHtml(log.device || "Card Reader")}</td>
+                <td>${escapeHtml(log.device || 'Card Reader')}</td>
             </tr>
         `).join('');
     }
     
     function formatDate(isoString) {
         if (!isoString) return 'N/A';
-        const d = new Date(isoString);
-        return d.toLocaleString(undefined, { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+        try {
+            const d = new Date(isoString);
+            return d.toLocaleString(undefined, { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+        } catch (e) {
+            return isoString;
+        }
     }
     
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
+        return String(str).replace(/[&<>]/g, function(m) {
             if (m === '&') return '&amp;';
             if (m === '<') return '&lt;';
             if (m === '>') return '&gt;';
@@ -597,20 +637,40 @@
         });
     }
     
-    // Export to CSV helper
-    function exportToCSV(data, columns, filename) {
-        let csvRows = [];
-        csvRows.push(columns.map(c => `"${c.label}"`).join(','));
-        for (const row of data) {
-            const values = columns.map(col => {
-                let val = row[col.key] !== undefined ? row[col.key] : '';
-                if (col.key === 'registeredAt' || col.key === 'timestamp') val = formatDate(val);
-                if (col.key === 'status') val = 'Active';
-                return `"${String(val).replace(/"/g, '""')}"`;
-            });
-            csvRows.push(values.join(','));
+    // Export Users to CSV
+    async function exportUsersCSV() {
+        const users = await fetchPersons();
+        if (users.length === 0) {
+            alert('No users to export');
+            return;
         }
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        
+        let csvContent = "\uFEFFUser ID,Full Name,Username,Email,Role,Lab\n";
+        users.forEach(user => {
+            csvContent += `"${user.user_id || ''}","${user.full_name || ''}","${user.username || ''}","${user.email || ''}","${user.role_name || ''}","${user.lab_name || ''}"\n`;
+        });
+        
+        downloadCSV(csvContent, `gk_users_${new Date().toISOString().slice(0,19)}.csv`);
+    }
+    
+    // Export Logs to CSV
+    async function exportLogsCSV() {
+        const logs = await fetchLogs();
+        if (logs.length === 0) {
+            alert('No logs to export');
+            return;
+        }
+        
+        let csvContent = "\uFEFFLog ID,Person Name,Card UID,Timestamp,Device\n";
+        logs.forEach(log => {
+            csvContent += `"${log.logId || ''}","${log.personName || ''}","${log.cardUid || ''}","${log.timestamp || ''}","${log.device || ''}"\n`;
+        });
+        
+        downloadCSV(csvContent, `gk_logs_${new Date().toISOString().slice(0,19)}.csv`);
+    }
+    
+    function downloadCSV(content, filename) {
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.href = url;
@@ -620,50 +680,6 @@
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     }
-    
-    // Export Users
-    function exportUsersCSV() {
-        const users = getUsers();
-        const columns = [
-            { label: 'User ID', key: 'id' },
-            { label: 'Full Name', key: 'fullName' },
-            { label: 'Email', key: 'email' },
-            { label: 'Card UID', key: 'cardUid' },
-            { label: 'Registration Date', key: 'registeredAt' },
-            { label: 'Status', key: 'status' }
-        ];
-        const exportData = users.map(u => ({ ...u, status: 'Active' }));
-        exportToCSV(exportData, columns, `gk_users_${new Date().toISOString().slice(0,19)}.csv`);
-    }
-    
-    // Export Logs
-    function exportLogsCSV() {
-        const logs = getLogs();
-        const users = getUsers();
-        const enriched = logs.map(log => {
-            const user = users.find(u => u.cardUid === log.cardUid);
-            return {
-                logId: log.logId,
-                personName: user ? user.fullName : (log.personName || 'Unknown'),
-                cardUid: log.cardUid,
-                timestamp: log.timestamp,
-                device: log.device || 'Card Reader'
-            };
-        });
-        const columns = [
-            { label: 'Log ID', key: 'logId' },
-            { label: 'Person Name', key: 'personName' },
-            { label: 'Card UID', key: 'cardUid' },
-            { label: 'Scan Timestamp', key: 'timestamp' },
-            { label: 'Device/Location', key: 'device' }
-        ];
-        exportToCSV(enriched, columns, `gk_cardlogs_${new Date().toISOString().slice(0,19)}.csv`);
-    }
-    
-    // Simulate adding demo log (optional: but to give live feel, allow new scan via a hidden mechanism? but dashboard is view/export.
-    // Also we add ability to clear session? but we keep data integrity.
-    // Provide additional "add sample scan" - For interactive demo, we can add a floating action? Not needed but nice.
-    // Since this is admin dashboard, we provide realtime updates.
     
     // Tab switching logic
     function switchTab(tabId) {
@@ -681,11 +697,33 @@
         }
     }
     
-    // Event listeners & initialization
-    document.addEventListener('DOMContentLoaded', () => {
-        updateStats();
-        renderUsersTable();
-        renderLogsTable();
+    // Check if user is logged in
+    function checkAuth() {
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            // Redirect to login if not authenticated
+            window.location.href = '/login';
+        }
+    }
+    
+    // Logout function
+    function logout() {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminId');
+        alert('Logged out successfully');
+        window.location.href = '/login';
+    }
+    
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', async () => {
+        //checkAuth();
+        
+        // Show loading state
+        document.getElementById('usersTableBody').innerHTML = '<tr class="empty-row"><td colspan="6">Loading...</td></tr>';
+        
+        await updateStats();
+        await renderUsersTable();
+        await renderLogsTable();
         
         // Nav listeners
         document.querySelectorAll('.nav-item').forEach(nav => {
@@ -700,6 +738,7 @@
         if (userSearch) {
             userSearch.addEventListener('input', () => renderUsersTable());
         }
+        
         const logSearch = document.getElementById('logSearch');
         if (logSearch) {
             logSearch.addEventListener('input', () => renderLogsTable());
@@ -709,33 +748,20 @@
         document.getElementById('exportUsersBtn')?.addEventListener('click', exportUsersCSV);
         document.getElementById('exportLogsBtn')?.addEventListener('click', exportLogsCSV);
         
-        // Logout simulation (redirect to login page)
-        document.getElementById('logoutBtn')?.addEventListener('click', () => {
-            // In real scenario, clear session, redirect to login.
-            alert('Logged out successfully. Redirecting to login...');
-            window.location.href = 'admin.html'; // back to login mock page
-        });
+        // Logout button
+        document.getElementById('logoutBtn')?.addEventListener('click', logout);
         
-        // Add refresh listeners for stats update when data changes (in case any admin actions later)
-        // Since there is no "add user" here directly but we can allow refresh after manual localstorage changes.
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'gk_users' || e.key === 'gk_card_logs') {
-                updateStats();
-                renderUsersTable();
-                renderLogsTable();
+        // Auto-refresh every 30 seconds
+        setInterval(async () => {
+            await updateStats();
+            const activeTab = document.querySelector('.section-panel.active-section').id;
+            if (activeTab === 'usersPanel') {
+                await renderUsersTable();
+            } else {
+                await renderLogsTable();
             }
-        });
-        
-        // Add optional button to stimulate a new card scan? Not mandatory but for demonstration we can embed a small simulate.
-        // However requirement only: view, monitor, export logs from card input. So this admin dashboard fully enables monitoring.
-        // Show current active panel.
+        }, 30000);
     });
-    
-    // Provide ability to keep data consistent if needed to add "simulate scan" for admin testing (just for preview)
-    // but not required for core feature, however adds usability: We add a small floating plus? no.
-    // Also ensure that the mock card logs show actual people who signed up via correlation.
-    // Additionally, add a demo note: Any new sign-ups would be added via external registration system; our dashboard displays all.
-    // For completeness, users can see and export.
 </script>
 </body>
 </html>
