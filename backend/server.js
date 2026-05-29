@@ -278,11 +278,11 @@ app.post('/api/persons', async (req, res) => {
         // Check if unique_id or dlsu_idnumber already exists in ID table
         const [existingId] = await connection.query(
             'SELECT * FROM ID WHERE unique_id = ? OR dlsu_idnumber = ?',
-            [parseInt(unique_id, 10), parseInt(dlsu_idnumber, 10)]
+            [unique_id, parseInt(dlsu_idnumber, 10)]
         );
 
         if (existingId.length > 0) {
-            const isRfidDup = existingId.some(id => id.unique_id === parseInt(unique_id, 10));
+            const isRfidDup = existingId.some(id => id.unique_id === unique_id);
             connection.release();
             return res.status(400).json({
                 success: false,
@@ -296,13 +296,13 @@ app.post('/api/persons', async (req, res) => {
         // 1. Insert into ID table
         await connection.query(
             'INSERT INTO ID (unique_id, dlsu_idnumber) VALUES (?, ?)',
-            [parseInt(unique_id, 10), parseInt(dlsu_idnumber, 10)]
+            [unique_id, parseInt(dlsu_idnumber, 10)]
         );
 
         // 2. Insert into Person table
         const [result] = await connection.query(
             'INSERT INTO Person (full_name, username, email, password, lab_id, role_id, unique_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [full_name, username, email, password, lab_id || null, role_id || null, parseInt(unique_id, 10)]
+            [full_name, username, email, password, lab_id || null, role_id || null, unique_id]
         );
 
         // Commit transaction
