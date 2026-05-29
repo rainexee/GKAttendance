@@ -984,6 +984,7 @@
 
         async function handleScannedUID(scanned) {
             if (!scanned) return;
+
             const matched = personsData.find(p => String(p.unique_id) === scanned);
             if (matched) {
                 const logged = await logUser(matched.user_id);
@@ -1058,37 +1059,36 @@
 
 
             // Global hardware scanner buffer (works even when rfidInput isn't focused)
-            let scannerBuffer = '';
-            let lastKeyTime = 0;
-            document.addEventListener('keydown', e => {
-                if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.id !== 'rfidInput') return;
-                const scanPanel = document.getElementById('scanPanel');
-                if (!scanPanel || !scanPanel.classList.contains('active-section')) return;
+            // let scannerBuffer = '';
+            // let lastKeyTime = 0;
+            // document.addEventListener('keydown', e => {
+            //     if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.id !== 'rfidInput') return;
+            //     const scanPanel = document.getElementById('scanPanel');
+            //     if (!scanPanel || !scanPanel.classList.contains('active-section')) return;
 
-                const now = Date.now();
-                if (now - lastKeyTime > 100) scannerBuffer = '';
-                lastKeyTime = now;
+            //     const now = Date.now();
+            //     if (now - lastKeyTime > 100) scannerBuffer = '';
+            //     lastKeyTime = now;
 
-                if (e.key === 'Enter') {
-                    if (scannerBuffer) {
-                        handleScannedUID(scannerBuffer.trim());
-                        console.log("Hello 2");
-                        scannerBuffer = '';
-                    }
-                } else if (e.key.length === 1) {
-                    scannerBuffer += e.key;
+            if (e.key === 'Enter') {
+                if (scannerBuffer) {
+                    handleScannedUID(scannerBuffer.trim());
+                    scannerBuffer = '';
                 }
-            });
+            } else if (e.key.length === 1) {
+                scannerBuffer += e.key;
+            }
+        });
 
-            // Auto-refresh every 30 seconds
-            setInterval(async () => {
-                await updateStats();
-                const activePanel = document.querySelector('.section-panel.active-section');
-                if (activePanel) {
-                    if (activePanel.id === 'usersPanel') await renderUsersTable();
-                    else if (activePanel.id === 'logsPanel') await renderLogsTable();
-                }
-            }, 30000);
+        // Auto-refresh every 30 seconds
+        setInterval(async () => {
+            await updateStats();
+            const activePanel = document.querySelector('.section-panel.active-section');
+            if (activePanel) {
+                if (activePanel.id === 'usersPanel') await renderUsersTable();
+                else if (activePanel.id === 'logsPanel') await renderLogsTable();
+            }
+        }, 30000);
         });
     </script>
 </body>
