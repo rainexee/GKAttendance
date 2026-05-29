@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const lab_id = parseInt(labSelect.value, 10);
         const role_id = parseInt(roleSelect.value, 10);
         const dlsu_idnumber = parseInt(dlsuIdInput.value.trim(), 10);
-        const unique_id = parseInt(uniqueIdInput.value.trim(), 10);
+        const unique_id = uniqueIdInput.value;
 
         // Validation checks
         if (!full_name || !email || !username || !password || !confirm_password || !lab_id || !role_id || !dlsu_idnumber || !unique_id) {

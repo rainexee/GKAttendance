@@ -371,26 +371,47 @@
 
         /* Scan Panel */
         .scan-zone {
-            background: rgba(30,41,59,0.5);
+            background: rgba(30, 41, 59, 0.5);
             backdrop-filter: blur(12px);
             border-radius: 28px;
-            border: 1px solid rgba(255,255,255,0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             padding: 2.5rem;
             text-align: center;
             margin-bottom: 2rem;
         }
+
         .scan-icon {
             font-size: 4rem;
             color: #3b82f6;
             margin-bottom: 1rem;
             animation: pulse 2s infinite;
         }
+
         @keyframes pulse {
-            0%, 100% { opacity:1; transform:scale(1); }
-            50% { opacity:0.6; transform:scale(1.05); }
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.6;
+                transform: scale(1.05);
+            }
         }
-        .scan-zone h3 { font-size:1.3rem; font-weight:600; margin-bottom:0.5rem; }
-        .scan-zone p { color:#94a3b8; font-size:0.9rem; }
+
+        .scan-zone h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .scan-zone p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
         .rfid-hidden-input {
             position: absolute;
             left: -9999px;
@@ -398,6 +419,7 @@
             width: 1px;
             height: 1px;
         }
+
         .scan-status {
             margin-top: 1rem;
             padding: 12px 20px;
@@ -405,44 +427,77 @@
             display: none;
             font-weight: 500;
         }
+
         .scan-status.success {
             display: block;
-            background: rgba(16,185,129,0.15);
+            background: rgba(16, 185, 129, 0.15);
             color: #34d399;
-            border: 1px solid rgba(16,185,129,0.3);
+            border: 1px solid rgba(16, 185, 129, 0.3);
         }
+
         .scan-status.error {
             display: block;
-            background: rgba(239,68,68,0.15);
+            background: rgba(239, 68, 68, 0.15);
             color: #f87171;
-            border: 1px solid rgba(239,68,68,0.3);
+            border: 1px solid rgba(239, 68, 68, 0.3);
         }
+
         .user-detail {
             display: none;
-            background: rgba(30,41,59,0.6);
+            background: rgba(30, 41, 59, 0.6);
             border-radius: 24px;
-            border: 1px solid rgba(255,255,255,0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             padding: 1.5rem 2rem;
             margin-top: 1.5rem;
             text-align: left;
         }
+
         .user-detail.visible {
             display: block;
             animation: fadeIn 0.3s ease;
         }
+
         @keyframes fadeIn {
-            from { opacity:0; transform:translateY(8px); }
-            to { opacity:1; transform:translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        .user-detail h4 { font-size:1.2rem; margin-bottom:1rem; color:#60a5fa; }
+
+        .user-detail h4 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #60a5fa;
+        }
+
         .detail-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.75rem 2rem;
         }
-        .detail-item { display:flex; flex-direction:column; }
-        .detail-label { color:#94a3b8; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; }
-        .detail-value { font-size:1rem; font-weight:500; color:#e2e8f0; }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #e2e8f0;
+        }
     </style>
 </head>
 
@@ -623,7 +678,9 @@
                                 </tr>
                             </thead>
                             <tbody id="recentScansBody">
-                                <tr class="empty-row"><td colspan="4">No scans yet. Tap a card to begin.</td></tr>
+                                <tr class="empty-row">
+                                    <td colspan="4">No scans yet. Tap a card to begin.</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -914,7 +971,7 @@
             const emptyRow = tbody.querySelector('.empty-row');
             if (emptyRow) emptyRow.remove();
             const now = new Date();
-            const timeStr = now.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+            const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><strong>${escapeHtml(user.full_name || 'Unknown')}</strong></td>
@@ -999,24 +1056,6 @@
             // Logout button
             document.getElementById('logoutBtn')?.addEventListener('click', logout);
 
-            // RFID hidden input listener
-            const rfidInput = document.getElementById('rfidInput');
-            if (rfidInput) {
-                rfidInput.addEventListener('keydown', e => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleScannedUID(e.target.value.trim());
-                        e.target.value = '';
-                    }
-                });
-                // Keep focus on rfid input when scan tab is active
-                rfidInput.addEventListener('blur', () => {
-                    const scanPanel = document.getElementById('scanPanel');
-                    if (scanPanel && scanPanel.classList.contains('active-section')) {
-                        setTimeout(() => rfidInput.focus(), 100);
-                    }
-                });
-            }
 
             // Global hardware scanner buffer (works even when rfidInput isn't focused)
             let scannerBuffer = '';
@@ -1033,6 +1072,7 @@
                 if (e.key === 'Enter') {
                     if (scannerBuffer) {
                         handleScannedUID(scannerBuffer.trim());
+                        console.log("Hello 2");
                         scannerBuffer = '';
                     }
                 } else if (e.key.length === 1) {
