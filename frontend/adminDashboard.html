@@ -1058,17 +1058,7 @@
             document.getElementById('logoutBtn')?.addEventListener('click', logout);
 
 
-            // Global hardware scanner buffer (works even when rfidInput isn't focused)
-            // let scannerBuffer = '';
-            // let lastKeyTime = 0;
-            // document.addEventListener('keydown', e => {
-            //     if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.id !== 'rfidInput') return;
-            //     const scanPanel = document.getElementById('scanPanel');
-            //     if (!scanPanel || !scanPanel.classList.contains('active-section')) return;
 
-            //     const now = Date.now();
-            //     if (now - lastKeyTime > 100) scannerBuffer = '';
-            //     lastKeyTime = now;
 
             if (e.key === 'Enter') {
                 if (scannerBuffer) {
@@ -1089,6 +1079,7 @@
                 else if (activePanel.id === 'logsPanel') await renderLogsTable();
             }
         }, 30000);
+
     </script>
 </body>
 
