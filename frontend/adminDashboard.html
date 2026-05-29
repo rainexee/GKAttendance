@@ -724,7 +724,7 @@
         // Fetch persons from database
         async function fetchPersons() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/persons`);
+                const response = await fetch(`${API_BASE_URL}/api/persons/status`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -811,7 +811,14 @@
                 <td>${escapeHtml(user.email || 'N/A')}</td>
                 <td><span class="badge-card">${escapeHtml(String(user.unique_id || 'N/A'))}</span></td>
                 <td>${formatDate(user.created_at) || 'N/A'}</td>
-                <td><i class="fas fa-check-circle" style="color:#10b981;"></i> Active</td>
+                <td>
+    ${user.current_status === 'LOGIN'
+                    ? '<span style="color:#34d399;font-weight:600;"><i class="fas fa-circle"></i> Logged In</span>'
+                    : user.current_status === 'LOGOUT'
+                        ? '<span style="color:#f87171;font-weight:600;"><i class="fas fa-circle"></i> Logged Out</span>'
+                        : '<span style="color:#94a3b8;font-weight:600;"><i class="fas fa-circle"></i> Never Logged</span>'
+                }
+</td>
             </tr>
         `).join('');
         }
@@ -866,6 +873,92 @@
                 if (m === '>') return '&gt;';
                 return m;
             });
+        }
+        function getAttendanceBadge(status) {
+
+            if (!status) {
+                return `
+            <span style="
+                background: rgba(148,163,184,0.18);
+                color: #cbd5e1;
+                padding: 6px 14px;
+                border-radius: 999px;
+                font-size: 0.75rem;
+                font-weight: 700;
+            ">
+                NEVER LOGGED IN
+            </span>
+        `;
+            }
+
+            switch (status) {
+
+                case 'LOGIN':
+                    return `
+                <span style="
+                    background: rgba(16,185,129,0.18);
+                    color: #34d399;
+                    padding: 6px 14px;
+                    border-radius: 999px;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                ">
+                    <i class="fas fa-circle"></i>
+                    INSIDE LAB
+                </span>
+            `;
+
+                case 'LOGOUT':
+                    return `
+                <span style="
+                    background: rgba(239,68,68,0.18);
+                    color: #f87171;
+                    padding: 6px 14px;
+                    border-radius: 999px;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                ">
+                    <i class="fas fa-door-open"></i>
+                    LOGGED OUT
+                </span>
+            `;
+
+                case 'DENIED_AFTER_HOURS':
+                    return `
+                <span style="
+                    background: rgba(245,158,11,0.18);
+                    color: #fbbf24;
+                    padding: 6px 14px;
+                    border-radius: 999px;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                ">
+                    AFTER HOURS
+                </span>
+            `;
+
+
+
+                default:
+                    return `
+                <span style="
+                    background: rgba(148,163,184,0.18);
+                    color: #cbd5e1;
+                    padding: 6px 14px;
+                    border-radius: 999px;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                ">
+                    UNKNOWN
+                </span>
+            `;
+            }
         }
 
         // Export Users to CSV
@@ -936,68 +1029,189 @@
 
         // ---- RFID SCAN LOGIC ----
         async function logUser(userId) {
+
             try {
+
                 const res = await fetch(`${API_BASE_URL}/api/logs`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: parseInt(userId) })
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: parseInt(userId)
+                    })
                 });
+
                 const data = await res.json();
-                return data.success;
+
+                return {
+                    success: data.success,
+                    message: data.message,
+                    status: data.status
+                };
+
             } catch (e) {
+
                 console.error('Log error:', e);
-                return false;
+
+                return {
+                    success: false,
+                    message: 'Server connection failed'
+                };
             }
         }
+        function showScanStatus(message, type) {
 
-        function showScanStatus(msg, type) {
-            const el = document.getElementById('scanStatus');
-            el.className = 'scan-status ' + type;
-            el.innerHTML = '<i class="fas fa-' + (type === 'success' ? 'check-circle' : 'exclamation-circle') + '"></i> ' + msg;
+            const statusEl = document.getElementById('scanStatus');
+
+            statusEl.className = 'scan-status ' + type;
+
+            statusEl.innerHTML = `
+        <i class="fas fa-${type === 'success'
+                    ? 'check-circle'
+                    : 'exclamation-circle'}"></i>
+        ${message}
+    `;
         }
-
         function showUserDetail(user) {
-            document.getElementById('detailName').textContent = user.full_name || 'N/A';
-            document.getElementById('detailDlsu').textContent = user.dlsu_idnumber || 'N/A';
-            document.getElementById('detailEmail').textContent = user.email || 'N/A';
-            document.getElementById('detailUid').textContent = user.unique_id || 'N/A';
-            document.getElementById('detailRole').textContent = user.role_name || 'N/A';
-            document.getElementById('detailLab').textContent = user.lab_name || 'N/A';
-            document.getElementById('userDetail').className = 'user-detail visible';
+
+            document.getElementById('detailName').textContent =
+                user.full_name || 'N/A';
+
+            document.getElementById('detailDlsu').textContent =
+                user.dlsu_idnumber || 'N/A';
+
+            document.getElementById('detailEmail').textContent =
+                user.email || 'N/A';
+
+            document.getElementById('detailUid').textContent =
+                user.unique_id || 'N/A';
+
+            document.getElementById('detailRole').textContent =
+                user.role_name || 'N/A';
+
+            document.getElementById('detailLab').textContent =
+                user.lab_name || 'N/A';
+
+            document.getElementById('userDetail').className =
+                'user-detail visible';
         }
 
         function addToRecentScans(user) {
+
             const tbody = document.getElementById('recentScansBody');
+
             const emptyRow = tbody.querySelector('.empty-row');
-            if (emptyRow) emptyRow.remove();
+
+            if (emptyRow) {
+                emptyRow.remove();
+            }
+
             const now = new Date();
-            const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            const timeStr = now.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            const status = user.current_status || 'LOGIN';
+
             const row = document.createElement('tr');
+
             row.innerHTML = `
-                <td><strong>${escapeHtml(user.full_name || 'Unknown')}</strong></td>
-                <td><span class="badge-card">${escapeHtml(String(user.unique_id || 'N/A'))}</span></td>
-                <td>${timeStr}</td>
-                <td><i class="fas fa-check-circle" style="color:#10b981;"></i> Logged</td>
-            `;
+        <td>
+            <strong>${escapeHtml(user.full_name || 'Unknown')}</strong>
+        </td>
+
+        <td>
+            <span class="badge-card">
+                ${escapeHtml(String(user.unique_id || 'N/A'))}
+            </span>
+        </td>
+
+        <td>${timeStr}</td>
+
+        <td>
+            <i class="fas fa-check-circle" style="color:#10b981;"></i>
+            ${status}
+        </td>
+    `;
+
             tbody.insertBefore(row, tbody.firstChild);
         }
 
+
         async function handleScannedUID(scanned) {
+
             if (!scanned) return;
-            const matched = personsData.find(p => String(p.unique_id) === scanned);
-            if (matched) {
-                const logged = await logUser(matched.user_id);
-                if (logged) {
-                    showScanStatus('Attendance logged for ' + matched.full_name, 'success');
-                    showUserDetail(matched);
-                    addToRecentScans(matched);
-                    await updateStats();
-                } else {
-                    showScanStatus('Found user but failed to create log entry', 'error');
-                }
-            } else {
-                showScanStatus('No registered user found for UID: ' + scanned, 'error');
+
+            const matched = personsData.find(
+                p => String(p.unique_id).trim() === String(scanned).trim()
+            );
+
+            if (!matched) {
+
+                showScanStatus(
+                    'No registered user found for UID: ' + scanned,
+                    'error'
+                );
+
                 document.getElementById('userDetail').className = 'user-detail';
+
+                return;
+            }
+
+            try {
+
+                const response = await fetch(`${API_BASE_URL}/api/logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: matched.user_id
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+
+                    showScanStatus(
+                        `${data.status} successful for ${matched.full_name}`,
+                        'success'
+                    );
+
+                    showUserDetail(matched);
+
+                    addToRecentScans({
+                        ...matched,
+                        current_status: data.status
+                    });
+
+                    await updateStats();
+                    await renderUsersTable();
+
+                } else {
+
+                    // Handles DENIED_AFTER_HOURS, DENIED_DUPLICATE, etc.
+                    showScanStatus(
+                        data.message || 'Failed to create log entry',
+                        'error'
+                    );
+
+                    showUserDetail(matched);
+                }
+
+            } catch (error) {
+
+                console.error('RFID Scan Error:', error);
+
+                showScanStatus(
+                    'Server error while logging attendance',
+                    'error'
+                );
             }
         }
 

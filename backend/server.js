@@ -153,52 +153,102 @@ app.get('/api/persons', async (req, res) => {
     }
 });
 
-// Get all card scan logs (from Logging table)
-app.get('/api/logs', async (req, res) => {
+// Add a new log entry (RFID Tap)
+app.post('/api/logs', async (req, res) => {
+
+    const { user_id } = req.body;
+
+    // Business Hours
+    const OPEN_HOUR = 9;   // 9 AM
+    const CLOSE_HOUR = 17; // 5 PM
+
     try {
-        const [rows] = await promisePool.query(`
-            SELECT 
-                l.log_id,
-                l.date_logged as timestamp,
-                l.user_id,
-                p.full_name,
-                p.username,
-                p.email,
-                p.unique_id,
-                r.role_name,
-                gl.lab_name
-            FROM Logging l
-            LEFT JOIN Person p ON l.user_id = p.user_id
-            LEFT JOIN Role r ON p.role_id = r.role_id
-            LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
-            ORDER BY l.date_logged DESC
-        `);
 
-        // Format the response to match what the frontend expects
-        const formattedLogs = rows.map(log => ({
-            logId: `LOG${String(log.log_id).padStart(3, '0')}`,
-            personName: log.full_name || 'Unknown',
-            cardUid: log.unique_id ? String(log.unique_id) : 'N/A',
-            timestamp: log.timestamp,
-            device: "Card Reader",
-            userId: log.user_id,
-            role: log.role_name,
-            lab: log.lab_name
-        }));
+        // Check if user exists
+        const [users] = await promisePool.query(
+            'SELECT * FROM Person WHERE user_id = ?',
+            [user_id]
+        );
 
-        res.status(200).json({
+        if (users.length === 0) {
+
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Current time
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        // Outside business hours
+        if (currentHour < OPEN_HOUR || currentHour >= CLOSE_HOUR) {
+
+            await promisePool.query(
+                'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
+                [user_id, 'DENIED_AFTER_HOURS']
+            );
+
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied: Outside business hours',
+                status: 'DENIED_AFTER_HOURS'
+            });
+        }
+
+        // Get latest log
+        const [latestLogs] = await promisePool.query(`
+            SELECT *
+            FROM Logging
+            WHERE user_id = ?
+            ORDER BY date_logged DESC
+            LIMIT 1
+        `, [user_id]);
+
+        let newStatus = 'LOGIN';
+
+        if (latestLogs.length > 0) {
+
+            const lastLog = latestLogs[0];
+
+            const lastTime = new Date(lastLog.date_logged);
+
+            // REMOVE DUPLICATE TAP DETECTION
+            // (deleted completely)
+
+            // Toggle LOGIN / LOGOUT
+            if (lastLog.status === 'LOGIN') {
+                newStatus = 'LOGOUT';
+            } else {
+                newStatus = 'LOGIN';
+            }
+        }
+
+        // Insert new log
+        const [result] = await promisePool.query(
+            'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
+            [user_id, newStatus]
+        );
+
+        res.status(201).json({
             success: true,
-            data: formattedLogs
+            message: `${newStatus} successful`,
+            status: newStatus,
+            logId: result.insertId,
+            timestamp: now
         });
+
     } catch (error) {
-        console.error('Error fetching logs:', error);
+
+        console.error('Error creating log:', error);
+
         res.status(500).json({
             success: false,
-            message: 'Error fetching logs data'
+            message: 'Error creating log entry'
         });
     }
 });
-
 // Get dashboard statistics
 app.get('/api/stats', async (req, res) => {
     try {
@@ -243,6 +293,115 @@ app.get('/api/stats', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error fetching statistics'
+        });
+    }
+});
+
+
+// Add a new log entry (RFID Tap)
+app.post('/api/logs', async (req, res) => {
+    const { user_id } = req.body;
+
+    // Business Hours
+    const OPEN_HOUR = 9;   // 9 AM
+    const CLOSE_HOUR = 17; // 5 PM
+
+    try {
+
+        // Check if user exists
+        const [users] = await promisePool.query(
+            'SELECT * FROM Person WHERE user_id = ?',
+            [user_id]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Current server time
+        const now = new Date();
+
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+
+        // Outside business hours
+        if (currentHour < OPEN_HOUR || currentHour >= CLOSE_HOUR) {
+
+            await promisePool.query(
+                'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
+                [user_id, 'DENIED_AFTER_HOURS']
+            );
+
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied: Outside business hours'
+            });
+        }
+
+        // Get latest log of the user
+        const [latestLogs] = await promisePool.query(`
+            SELECT *
+            FROM Logging
+            WHERE user_id = ?
+            ORDER BY date_logged DESC
+            LIMIT 1
+        `, [user_id]);
+
+        let newStatus = 'LOGIN';
+
+        if (latestLogs.length > 0) {
+
+            const lastLog = latestLogs[0];
+
+            const lastTime = new Date(lastLog.date_logged);
+
+            // Prevent duplicate taps within 10 seconds
+            const diffSeconds = (now - lastTime) / 1000;
+
+            if (diffSeconds < 10) {
+
+                await promisePool.query(
+                    'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
+                    [user_id, 'DENIED_DUPLICATE']
+                );
+
+                return res.status(429).json({
+                    success: false,
+                    message: 'Duplicate tap detected'
+                });
+            }
+
+            // Toggle LOGIN/LOGOUT
+            if (lastLog.status === 'LOGIN') {
+                newStatus = 'LOGOUT';
+            } else {
+                newStatus = 'LOGIN';
+            }
+        }
+
+        // Save log
+        const [result] = await promisePool.query(
+            'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
+            [user_id, newStatus]
+        );
+
+        res.status(201).json({
+            success: true,
+            message: `${newStatus} successful`,
+            status: newStatus,
+            logId: result.insertId,
+            timestamp: now
+        });
+
+    } catch (error) {
+        console.error('Error creating log:', error);
+
+        res.status(500).json({
+            success: false,
+            message: 'Error creating log entry'
         });
     }
 });
@@ -321,6 +480,66 @@ app.post('/api/persons', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error registering user'
+        });
+    }
+});
+
+// Get persons with live attendance status
+app.get('/api/persons/status', async (req, res) => {
+    try {
+
+        const [rows] = await promisePool.query(`
+            SELECT 
+                p.user_id,
+                p.full_name,
+                p.username,
+                p.email,
+                p.lab_id,
+                p.role_id,
+                p.created_at,
+
+                r.role_name,
+
+                gl.lab_code,
+                gl.lab_name,
+
+                p.unique_id,
+                i.dlsu_idnumber,
+
+                (
+                    SELECT l.status
+                    FROM Logging l
+                    WHERE l.user_id = p.user_id
+                    ORDER BY l.date_logged DESC
+                    LIMIT 1
+                ) AS current_status
+
+            FROM Person p
+
+            LEFT JOIN Role r
+                ON p.role_id = r.role_id
+
+            LEFT JOIN GKLab gl
+                ON p.lab_id = gl.lab_id
+
+            LEFT JOIN ID i
+                ON p.unique_id = i.unique_id
+
+            ORDER BY p.user_id DESC
+        `);
+
+        res.status(200).json({
+            success: true,
+            data: rows
+        });
+
+    } catch (error) {
+
+        console.error('Error fetching attendance statuses:', error);
+
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching attendance status data'
         });
     }
 });
@@ -406,29 +625,6 @@ app.get('/api/roles', async (req, res) => {
     }
 });
 
-// Add a new log entry (for card scan)
-app.post('/api/logs', async (req, res) => {
-    const { user_id } = req.body;
-
-    try {
-        const [result] = await promisePool.query(
-            'INSERT INTO Logging (user_id) VALUES (?)',
-            [user_id]
-        );
-
-        res.status(201).json({
-            success: true,
-            message: 'Log entry created',
-            logId: result.insertId
-        });
-    } catch (error) {
-        console.error('Error creating log:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error creating log entry'
-        });
-    }
-});
 
 // Export logs as CSV
 app.get('/api/export/logs', async (req, res) => {
