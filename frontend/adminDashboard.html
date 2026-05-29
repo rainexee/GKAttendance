@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>GKAttendance - Admin Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * {
@@ -59,7 +61,7 @@
             justify-content: center;
             font-weight: 800;
             font-size: 1.3rem;
-            box-shadow: 0 8px 16px -4px rgba(59,130,246,0.3);
+            box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.3);
         }
 
         .logo-area h2 {
@@ -246,7 +248,7 @@
 
         .search-box input {
             background: rgba(15, 23, 42, 0.8);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 10px 16px;
             border-radius: 40px;
             color: white;
@@ -274,7 +276,7 @@
 
         .btn-export:hover {
             transform: scale(1.02);
-            box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
         .table-wrapper {
@@ -287,7 +289,8 @@
             border-collapse: collapse;
         }
 
-        th, td {
+        th,
+        td {
             padding: 1rem 1rem;
             text-align: left;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -306,7 +309,7 @@
         }
 
         .badge-card {
-            background: rgba(59,130,246,0.2);
+            background: rgba(59, 130, 246, 0.2);
             color: #93c5fd;
             padding: 4px 12px;
             border-radius: 30px;
@@ -335,16 +338,21 @@
                 width: 80px;
                 padding: 1rem 0.5rem;
             }
-            .sidebar .logo-area h2, .sidebar .nav-item span:not(i) {
+
+            .sidebar .logo-area h2,
+            .sidebar .nav-item span:not(i) {
                 display: none;
             }
+
             .logo-area {
                 justify-content: center;
             }
+
             .main-content {
                 margin-left: 80px;
                 padding: 1rem;
             }
+
             .nav-item {
                 justify-content: center;
             }
@@ -356,257 +364,423 @@
             margin: 0 4px;
             transition: 0.2s;
         }
+
         .action-icon:hover {
             color: #3b82f6;
         }
+
+        /* Scan Panel */
+        .scan-zone {
+            background: rgba(30,41,59,0.5);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 2.5rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .scan-icon {
+            font-size: 4rem;
+            color: #3b82f6;
+            margin-bottom: 1rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity:1; transform:scale(1); }
+            50% { opacity:0.6; transform:scale(1.05); }
+        }
+        .scan-zone h3 { font-size:1.3rem; font-weight:600; margin-bottom:0.5rem; }
+        .scan-zone p { color:#94a3b8; font-size:0.9rem; }
+        .rfid-hidden-input {
+            position: absolute;
+            left: -9999px;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+        }
+        .scan-status {
+            margin-top: 1rem;
+            padding: 12px 20px;
+            border-radius: 14px;
+            display: none;
+            font-weight: 500;
+        }
+        .scan-status.success {
+            display: block;
+            background: rgba(16,185,129,0.15);
+            color: #34d399;
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+        .scan-status.error {
+            display: block;
+            background: rgba(239,68,68,0.15);
+            color: #f87171;
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .user-detail {
+            display: none;
+            background: rgba(30,41,59,0.6);
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 1.5rem 2rem;
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+        .user-detail.visible {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity:0; transform:translateY(8px); }
+            to { opacity:1; transform:translateY(0); }
+        }
+        .user-detail h4 { font-size:1.2rem; margin-bottom:1rem; color:#60a5fa; }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem 2rem;
+        }
+        .detail-item { display:flex; flex-direction:column; }
+        .detail-label { color:#94a3b8; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; }
+        .detail-value { font-size:1rem; font-weight:500; color:#e2e8f0; }
     </style>
 </head>
+
 <body>
-<div class="dashboard-container">
-    <!-- Sidebar Navigation -->
-    <div class="sidebar">
-        <div class="logo-area">
-            <div class="logo-badge">GK</div>
-            <h2>GKAttendance</h2>
-        </div>
-        <div class="nav-menu">
-            <div class="nav-item active" data-tab="users">
-                <i class="fas fa-users"></i>
-                <span>Registered People</span>
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="logo-area">
+                <div class="logo-badge">GK</div>
+                <h2>GKAttendance</h2>
             </div>
-            <div class="nav-item" data-tab="logs">
-                <i class="fas fa-history"></i>
-                <span>Card Scan Logs</span>
+            <div class="nav-menu">
+                <div class="nav-item active" data-tab="users">
+                    <i class="fas fa-users"></i>
+                    <span>Registered People</span>
+                </div>
+                <div class="nav-item" data-tab="logs">
+                    <i class="fas fa-history"></i>
+                    <span>Card Scan Logs</span>
+                </div>
+                <div class="nav-item" data-tab="scan">
+                    <i class="fas fa-qrcode"></i>
+                    <span>Card Scanner</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="dashboard-header">
+                <div class="page-title" id="dynamic-title">Registered People</div>
+                <div class="admin-info">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Admin • GK Portal</span>
+                    <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                </div>
+            </div>
+
+            <!-- Stats Cards (dynamic counts) -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-user-plus"></i></div>
+                    <div class="stat-value" id="totalUsersStat">0</div>
+                    <div class="stat-label">Total Sign-ups</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-id-card"></i></div>
+                    <div class="stat-value" id="totalLogsStat">0</div>
+                    <div class="stat-label">Card Scan Entries</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                    <div class="stat-value" id="todayLogsStat">0</div>
+                    <div class="stat-label">Today's Scans</div>
+                </div>
+            </div>
+
+            <!-- Panel: Registered Users Section -->
+            <div id="usersPanel" class="section-panel active-section">
+                <div class="data-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-address-card"></i> People Who Signed Up</h3>
+                        <div class="search-box">
+                            <input type="text" id="userSearch" placeholder="Search by name, email, card..."
+                                autocomplete="off">
+                            <button class="btn-export" id="exportUsersBtn"><i class="fas fa-download"></i> Export Users
+                                CSV</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="usersTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>DLSU ID</th>
+                                    <th>Full Name</th>
+                                    <th>Email</th>
+                                    <th>Card UID</th>
+                                    <th>Registered On</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr class="empty-row">
+                                    <td colspan="7">Loading registered users...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel: Card Scan Logs Section -->
+            <div id="logsPanel" class="section-panel">
+                <div class="data-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-id-card"></i> Card Input / Scan Logs</h3>
+                        <div class="search-box">
+                            <input type="text" id="logSearch" placeholder="Search by name or card UID..."
+                                autocomplete="off">
+                            <button class="btn-export" id="exportLogsBtn"><i class="fas fa-file-csv"></i> Export Logs
+                                CSV</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="logsTable">
+                            <thead>
+                                <tr>
+                                    <th>Log ID</th>
+                                    <th>Person Name</th>
+                                    <th>Card UID</th>
+                                    <th>Scan Timestamp</th>
+                                    <th>Device/Note</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logsTableBody">
+                                <tr class="empty-row">
+                                    <td colspan="5">No scan logs found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel: Card Scanner Section -->
+            <div id="scanPanel" class="section-panel">
+                <div class="scan-zone">
+                    <div class="scan-icon"><i class="fas fa-wifi"></i></div>
+                    <h3>Waiting for RFID Card...</h3>
+                    <p>Place the card on the reader to scan</p>
+                    <!-- Hidden input that captures hardware scanner keystrokes -->
+                    <input type="text" id="rfidInput" class="rfid-hidden-input" autocomplete="off" />
+                    <div class="scan-status" id="scanStatus"></div>
+                    <div class="user-detail" id="userDetail">
+                        <h4><i class="fas fa-user-check" style="margin-right:8px;"></i> Scanned User</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Full Name</span>
+                                <span class="detail-value" id="detailName">—</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">DLSU ID</span>
+                                <span class="detail-value" id="detailDlsu">—</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Email</span>
+                                <span class="detail-value" id="detailEmail">—</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Card UID</span>
+                                <span class="detail-value" id="detailUid">—</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Role</span>
+                                <span class="detail-value" id="detailRole">—</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lab</span>
+                                <span class="detail-value" id="detailLab">—</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Recent Scans This Session -->
+                <div class="data-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-history"></i> Recent Scans (This Session)</h3>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Card UID</th>
+                                    <th>Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentScansBody">
+                                <tr class="empty-row"><td colspan="4">No scans yet. Tap a card to begin.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <div class="dashboard-header">
-            <div class="page-title" id="dynamic-title">Registered People</div>
-            <div class="admin-info">
-                <i class="fas fa-shield-alt"></i>
-                <span>Admin • GK Portal</span>
-                <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
-            </div>
-        </div>
+    <script>
+        // API Base URL
+        const API_BASE_URL = window.location.origin;
 
-        <!-- Stats Cards (dynamic counts) -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-user-plus"></i></div>
-                <div class="stat-value" id="totalUsersStat">0</div>
-                <div class="stat-label">Total Sign-ups</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-id-card"></i></div>
-                <div class="stat-value" id="totalLogsStat">0</div>
-                <div class="stat-label">Card Scan Entries</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
-                <div class="stat-value" id="todayLogsStat">0</div>
-                <div class="stat-label">Today's Scans</div>
-            </div>
-        </div>
+        // Global data stores
+        let personsData = [];
+        let logsData = [];
 
-        <!-- Panel: Registered Users Section -->
-        <div id="usersPanel" class="section-panel active-section">
-            <div class="data-panel">
-                <div class="panel-header">
-                    <h3><i class="fas fa-address-card"></i> People Who Signed Up</h3>
-                    <div class="search-box">
-                        <input type="text" id="userSearch" placeholder="Search by name, email, card..." autocomplete="off">
-                        <button class="btn-export" id="exportUsersBtn"><i class="fas fa-download"></i> Export Users CSV</button>
-                    </div>
-                </div>
-                <div class="table-wrapper">
-                    <table id="usersTable">
-                        <thead>
-                            <tr><th>ID</th><th>Full Name</th><th>Email</th><th>Card UID</th><th>Registered On</th><th>Status</th></tr>
-                        </thead>
-                        <tbody id="usersTableBody">
-                            <tr class="empty-row"><td colspan="6">Loading registered users...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        // Helper function for API calls
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
 
-        <!-- Panel: Card Scan Logs Section -->
-        <div id="logsPanel" class="section-panel">
-            <div class="data-panel">
-                <div class="panel-header">
-                    <h3><i class="fas fa-id-card"></i> Card Input / Scan Logs</h3>
-                    <div class="search-box">
-                        <input type="text" id="logSearch" placeholder="Search by name or card UID..." autocomplete="off">
-                        <button class="btn-export" id="exportLogsBtn"><i class="fas fa-file-csv"></i> Export Logs CSV</button>
-                    </div>
-                </div>
-                <div class="table-wrapper">
-                    <table id="logsTable">
-                        <thead>
-                            <tr><th>Log ID</th><th>Person Name</th><th>Card UID</th><th>Scan Timestamp</th><th>Device/Note</th></tr>
-                        </thead>
-                        <tbody id="logsTableBody">
-                            <tr class="empty-row"><td colspan="5">No scan logs found.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+                const data = await response.json();
 
-// Replace the entire script section in adminDashboard.html with this:
+                if (!data.success) {
+                    throw new Error(data.message || 'API call failed');
+                }
 
-<script>
-    // API Base URL
-    const API_BASE_URL = window.location.origin;
-    
-    // Global data stores
-    let personsData = [];
-    let logsData = [];
-    
-    // Helper function for API calls
-    async function apiCall(endpoint, options = {}) {
-        try {
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                },
-                ...options
-            });
-            
-            const data = await response.json();
-            
-            if (!data.success) {
-                throw new Error(data.message || 'API call failed');
+                return data;
+            } catch (error) {
+                console.error(`API Error (${endpoint}):`, error);
+                throw error;
             }
-            
-            return data;
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
         }
-    }
-    
-    // Fetch persons from database
-    async function fetchPersons() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/persons`);
-            const data = await response.json();
-            
-            if (data.success) {
-                personsData = data.data;
-                return personsData;
-            } else {
-                throw new Error(data.message);
+
+        // Fetch persons from database
+        async function fetchPersons() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/persons`);
+                const data = await response.json();
+
+                if (data.success) {
+                    personsData = data.data;
+                    return personsData;
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch (error) {
+                console.error('Error fetching persons:', error);
+                return [];
             }
-        } catch (error) {
-            console.error('Error fetching persons:', error);
-            return [];
         }
-    }
-    
-    // Fetch logs from database
-    async function fetchLogs() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/logs`);
-            const data = await response.json();
-            
-            if (data.success) {
-                logsData = data.data;
-                return logsData;
-            } else {
-                throw new Error(data.message);
+
+        // Fetch logs from database
+        async function fetchLogs() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/logs`);
+                const data = await response.json();
+
+                if (data.success) {
+                    logsData = data.data;
+                    return logsData;
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                return [];
             }
-        } catch (error) {
-            console.error('Error fetching logs:', error);
-            return [];
         }
-    }
-    
-    // Fetch stats from database
-    async function fetchStats() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/stats`);
-            const data = await response.json();
-            
-            if (data.success) {
-                return data.data;
-            } else {
-                throw new Error(data.message);
+
+        // Fetch stats from database
+        async function fetchStats() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/stats`);
+                const data = await response.json();
+
+                if (data.success) {
+                    return data.data;
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+                return { totalUsers: 0, totalLogs: 0, todayLogs: 0 };
             }
-        } catch (error) {
-            console.error('Error fetching stats:', error);
-            return { totalUsers: 0, totalLogs: 0, todayLogs: 0 };
         }
-    }
-    
-    // Update stats counters
-    async function updateStats() {
-        const stats = await fetchStats();
-        document.getElementById('totalUsersStat').innerText = stats.totalUsers || 0;
-        document.getElementById('totalLogsStat').innerText = stats.totalLogs || 0;
-        document.getElementById('todayLogsStat').innerText = stats.todayLogs || 0;
-    }
-    
-    // Render Users Table with search
-    async function renderUsersTable() {
-        const users = await fetchPersons();
-        const searchTerm = document.getElementById('userSearch')?.value.toLowerCase() || '';
-        
-        const filtered = users.filter(u => 
-            (u.full_name && u.full_name.toLowerCase().includes(searchTerm)) || 
-            (u.email && u.email.toLowerCase().includes(searchTerm)) ||
-            (u.username && u.username.toLowerCase().includes(searchTerm))
-        );
-        
-        const tbody = document.getElementById('usersTableBody');
-        if (!tbody) return;
-        
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No registered users found.</td></tr>';
-            return;
+
+        // Update stats counters
+        async function updateStats() {
+            const stats = await fetchStats();
+            document.getElementById('totalUsersStat').innerText = stats.totalUsers || 0;
+            document.getElementById('totalLogsStat').innerText = stats.totalLogs || 0;
+            document.getElementById('todayLogsStat').innerText = stats.todayLogs || 0;
         }
-        
-        tbody.innerHTML = filtered.map(user => `
+
+        // Render Users Table with search
+        async function renderUsersTable() {
+            const users = await fetchPersons();
+            const searchTerm = document.getElementById('userSearch')?.value.toLowerCase() || '';
+
+            const filtered = users.filter(u =>
+                (u.full_name && u.full_name.toLowerCase().includes(searchTerm)) ||
+                (u.email && u.email.toLowerCase().includes(searchTerm)) ||
+                (u.username && u.username.toLowerCase().includes(searchTerm)) ||
+                (u.dlsu_idnumber && String(u.dlsu_idnumber).includes(searchTerm)) ||
+                (u.unique_id && String(u.unique_id).includes(searchTerm))
+            );
+
+            const tbody = document.getElementById('usersTableBody');
+            if (!tbody) return;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No registered users found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(user => `
             <tr>
                 <td>${escapeHtml(String(user.user_id || ''))}</td>
+                <td><strong>${escapeHtml(String(user.dlsu_idnumber || 'N/A'))}</strong></td>
                 <td><strong>${escapeHtml(user.full_name || 'N/A')}</strong></td>
                 <td>${escapeHtml(user.email || 'N/A')}</td>
-                <td><span class="badge-card">CARD-${escapeHtml(String(user.user_id || ''))}</span></td>
+                <td><span class="badge-card">${escapeHtml(String(user.unique_id || 'N/A'))}</span></td>
                 <td>${formatDate(user.created_at) || 'N/A'}</td>
                 <td><i class="fas fa-check-circle" style="color:#10b981;"></i> Active</td>
             </tr>
         `).join('');
-    }
-    
-    // Render Logs Table with search
-    async function renderLogsTable() {
-        const logs = await fetchLogs();
-        const searchTerm = document.getElementById('logSearch')?.value.toLowerCase() || '';
-        
-        let filtered = logs;
-        if (searchTerm) {
-            filtered = logs.filter(l => 
-                (l.personName && l.personName.toLowerCase().includes(searchTerm)) || 
-                (l.cardUid && l.cardUid.toLowerCase().includes(searchTerm))
-            );
         }
-        
-        const tbody = document.getElementById('logsTableBody');
-        if (!tbody) return;
-        
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No card scan logs found.</td></tr>';
-            return;
-        }
-        
-        tbody.innerHTML = filtered.map(log => `
+
+        // Render Logs Table with search
+        async function renderLogsTable() {
+            const logs = await fetchLogs();
+            const searchTerm = document.getElementById('logSearch')?.value.toLowerCase() || '';
+
+            let filtered = logs;
+            if (searchTerm) {
+                filtered = logs.filter(l =>
+                    (l.personName && l.personName.toLowerCase().includes(searchTerm)) ||
+                    (l.cardUid && l.cardUid.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            const tbody = document.getElementById('logsTableBody');
+            if (!tbody) return;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No card scan logs found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(log => `
             <tr>
                 <td>${escapeHtml(log.logId || '')}</td>
                 <td><i class="fas fa-user-check" style="color:#60a5fa; margin-right:6px;"></i>${escapeHtml(log.personName || 'Unknown')}</td>
@@ -615,153 +789,268 @@
                 <td>${escapeHtml(log.device || 'Card Reader')}</td>
             </tr>
         `).join('');
-    }
-    
-    function formatDate(isoString) {
-        if (!isoString) return 'N/A';
-        try {
-            const d = new Date(isoString);
-            return d.toLocaleString(undefined, { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-        } catch (e) {
-            return isoString;
         }
-    }
-    
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str).replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-    
-    // Export Users to CSV
-    async function exportUsersCSV() {
-        const users = await fetchPersons();
-        if (users.length === 0) {
-            alert('No users to export');
-            return;
+
+        function formatDate(isoString) {
+            if (!isoString) return 'N/A';
+            try {
+                const d = new Date(isoString);
+                return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            } catch (e) {
+                return isoString;
+            }
         }
-        
-        let csvContent = "\uFEFFUser ID,Full Name,Username,Email,Role,Lab\n";
-        users.forEach(user => {
-            csvContent += `"${user.user_id || ''}","${user.full_name || ''}","${user.username || ''}","${user.email || ''}","${user.role_name || ''}","${user.lab_name || ''}"\n`;
-        });
-        
-        downloadCSV(csvContent, `gk_users_${new Date().toISOString().slice(0,19)}.csv`);
-    }
-    
-    // Export Logs to CSV
-    async function exportLogsCSV() {
-        const logs = await fetchLogs();
-        if (logs.length === 0) {
-            alert('No logs to export');
-            return;
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function (m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
         }
-        
-        let csvContent = "\uFEFFLog ID,Person Name,Card UID,Timestamp,Device\n";
-        logs.forEach(log => {
-            csvContent += `"${log.logId || ''}","${log.personName || ''}","${log.cardUid || ''}","${log.timestamp || ''}","${log.device || ''}"\n`;
-        });
-        
-        downloadCSV(csvContent, `gk_logs_${new Date().toISOString().slice(0,19)}.csv`);
-    }
-    
-    function downloadCSV(content, filename) {
-        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        link.setAttribute('download', filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }
-    
-    // Tab switching logic
-    function switchTab(tabId) {
-        document.querySelectorAll('.section-panel').forEach(panel => panel.classList.remove('active-section'));
-        document.getElementById(`${tabId}Panel`).classList.add('active-section');
-        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-        document.querySelector(`.nav-item[data-tab="${tabId}"]`).classList.add('active');
-        const title = tabId === 'users' ? 'Registered People' : 'Card Scan Logs';
-        document.getElementById('dynamic-title').innerText = title;
-        
-        if (tabId === 'users') {
-            renderUsersTable();
-        } else {
-            renderLogsTable();
+
+        // Export Users to CSV
+        async function exportUsersCSV() {
+            const users = await fetchPersons();
+            if (users.length === 0) {
+                alert('No users to export');
+                return;
+            }
+
+            let csvContent = "\uFEFFUser ID,DLSU ID,Full Name,Username,Email,Card UID,Role,Lab\n";
+            users.forEach(user => {
+                csvContent += `"${user.user_id || ''}","${user.dlsu_idnumber || ''}","${user.full_name || ''}","${user.username || ''}","${user.email || ''}","${user.unique_id || ''}","${user.role_name || ''}","${user.lab_name || ''}"\n`;
+            });
+
+            downloadCSV(csvContent, `gk_users_${new Date().toISOString().slice(0, 19)}.csv`);
         }
-    }
-    
-    // Check if user is logged in
-    function checkAuth() {
-        const token = localStorage.getItem('adminToken');
-        if (!token) {
-            // Redirect to login if not authenticated
+
+        // Export Logs to CSV
+        async function exportLogsCSV() {
+            const logs = await fetchLogs();
+            if (logs.length === 0) {
+                alert('No logs to export');
+                return;
+            }
+
+            let csvContent = "\uFEFFLog ID,Person Name,Card UID,Timestamp,Device\n";
+            logs.forEach(log => {
+                csvContent += `"${log.logId || ''}","${log.personName || ''}","${log.cardUid || ''}","${log.timestamp || ''}","${log.device || ''}"\n`;
+            });
+
+            downloadCSV(csvContent, `gk_logs_${new Date().toISOString().slice(0, 19)}.csv`);
+        }
+
+        function downloadCSV(content, filename) {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Tab switching logic
+        function switchTab(tabId) {
+            document.querySelectorAll('.section-panel').forEach(panel => panel.classList.remove('active-section'));
+            const target = document.getElementById(`${tabId}Panel`);
+            if (target) target.classList.add('active-section');
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            const navItem = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+            if (navItem) navItem.classList.add('active');
+            const titles = { users: 'Registered People', logs: 'Card Scan Logs', scan: 'Card Scanner' };
+            document.getElementById('dynamic-title').innerText = titles[tabId] || '';
+
+            if (tabId === 'users') {
+                renderUsersTable();
+            } else if (tabId === 'logs') {
+                renderLogsTable();
+            } else if (tabId === 'scan') {
+                // Focus the hidden RFID input so hardware scanner works
+                const rfid = document.getElementById('rfidInput');
+                if (rfid) rfid.focus();
+            }
+        }
+
+        // ---- RFID SCAN LOGIC ----
+        async function logUser(userId) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/logs`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: parseInt(userId) })
+                });
+                const data = await res.json();
+                return data.success;
+            } catch (e) {
+                console.error('Log error:', e);
+                return false;
+            }
+        }
+
+        function showScanStatus(msg, type) {
+            const el = document.getElementById('scanStatus');
+            el.className = 'scan-status ' + type;
+            el.innerHTML = '<i class="fas fa-' + (type === 'success' ? 'check-circle' : 'exclamation-circle') + '"></i> ' + msg;
+        }
+
+        function showUserDetail(user) {
+            document.getElementById('detailName').textContent = user.full_name || 'N/A';
+            document.getElementById('detailDlsu').textContent = user.dlsu_idnumber || 'N/A';
+            document.getElementById('detailEmail').textContent = user.email || 'N/A';
+            document.getElementById('detailUid').textContent = user.unique_id || 'N/A';
+            document.getElementById('detailRole').textContent = user.role_name || 'N/A';
+            document.getElementById('detailLab').textContent = user.lab_name || 'N/A';
+            document.getElementById('userDetail').className = 'user-detail visible';
+        }
+
+        function addToRecentScans(user) {
+            const tbody = document.getElementById('recentScansBody');
+            const emptyRow = tbody.querySelector('.empty-row');
+            if (emptyRow) emptyRow.remove();
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${escapeHtml(user.full_name || 'Unknown')}</strong></td>
+                <td><span class="badge-card">${escapeHtml(String(user.unique_id || 'N/A'))}</span></td>
+                <td>${timeStr}</td>
+                <td><i class="fas fa-check-circle" style="color:#10b981;"></i> Logged</td>
+            `;
+            tbody.insertBefore(row, tbody.firstChild);
+        }
+
+        async function handleScannedUID(scanned) {
+            if (!scanned) return;
+            const matched = personsData.find(p => String(p.unique_id) === scanned);
+            if (matched) {
+                const logged = await logUser(matched.user_id);
+                if (logged) {
+                    showScanStatus('Attendance logged for ' + matched.full_name, 'success');
+                    showUserDetail(matched);
+                    addToRecentScans(matched);
+                    await updateStats();
+                } else {
+                    showScanStatus('Found user but failed to create log entry', 'error');
+                }
+            } else {
+                showScanStatus('No registered user found for UID: ' + scanned, 'error');
+                document.getElementById('userDetail').className = 'user-detail';
+            }
+        }
+
+        // Check if user is logged in
+        function checkAuth() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                // Redirect to login if not authenticated
+                window.location.href = '/login';
+            }
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminId');
+            alert('Logged out successfully');
             window.location.href = '/login';
         }
-    }
-    
-    // Logout function
-    function logout() {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminId');
-        alert('Logged out successfully');
-        window.location.href = '/login';
-    }
-    
-    // Initialize dashboard
-    document.addEventListener('DOMContentLoaded', async () => {
-        //checkAuth();
-        
-        // Show loading state
-        document.getElementById('usersTableBody').innerHTML = '<tr class="empty-row"><td colspan="6">Loading...</td></tr>';
-        
-        await updateStats();
-        await renderUsersTable();
-        await renderLogsTable();
-        
-        // Nav listeners
-        document.querySelectorAll('.nav-item').forEach(nav => {
-            nav.addEventListener('click', (e) => {
-                const tab = nav.getAttribute('data-tab');
-                switchTab(tab);
-            });
-        });
-        
-        // Search users
-        const userSearch = document.getElementById('userSearch');
-        if (userSearch) {
-            userSearch.addEventListener('input', () => renderUsersTable());
-        }
-        
-        const logSearch = document.getElementById('logSearch');
-        if (logSearch) {
-            logSearch.addEventListener('input', () => renderLogsTable());
-        }
-        
-        // Export buttons
-        document.getElementById('exportUsersBtn')?.addEventListener('click', exportUsersCSV);
-        document.getElementById('exportLogsBtn')?.addEventListener('click', exportLogsCSV);
-        
-        // Logout button
-        document.getElementById('logoutBtn')?.addEventListener('click', logout);
-        
-        // Auto-refresh every 30 seconds
-        setInterval(async () => {
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', async () => {
+            //checkAuth();
+
+            // Show loading state
+            document.getElementById('usersTableBody').innerHTML = '<tr class="empty-row"><td colspan="7">Loading...</td></tr>';
+
             await updateStats();
-            const activeTab = document.querySelector('.section-panel.active-section').id;
-            if (activeTab === 'usersPanel') {
-                await renderUsersTable();
-            } else {
-                await renderLogsTable();
+            await renderUsersTable();
+            await renderLogsTable();
+
+            // Nav listeners
+            document.querySelectorAll('.nav-item[data-tab]').forEach(nav => {
+                nav.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const tab = nav.getAttribute('data-tab');
+                    if (tab) switchTab(tab);
+                });
+            });
+
+            // Search users
+            const userSearch = document.getElementById('userSearch');
+            if (userSearch) {
+                userSearch.addEventListener('input', () => renderUsersTable());
             }
-        }, 30000);
-    });
-</script>
+
+            const logSearch = document.getElementById('logSearch');
+            if (logSearch) {
+                logSearch.addEventListener('input', () => renderLogsTable());
+            }
+
+            // Export buttons
+            document.getElementById('exportUsersBtn')?.addEventListener('click', exportUsersCSV);
+            document.getElementById('exportLogsBtn')?.addEventListener('click', exportLogsCSV);
+
+            // Logout button
+            document.getElementById('logoutBtn')?.addEventListener('click', logout);
+
+            // RFID hidden input listener
+            const rfidInput = document.getElementById('rfidInput');
+            if (rfidInput) {
+                rfidInput.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleScannedUID(e.target.value.trim());
+                        e.target.value = '';
+                    }
+                });
+                // Keep focus on rfid input when scan tab is active
+                rfidInput.addEventListener('blur', () => {
+                    const scanPanel = document.getElementById('scanPanel');
+                    if (scanPanel && scanPanel.classList.contains('active-section')) {
+                        setTimeout(() => rfidInput.focus(), 100);
+                    }
+                });
+            }
+
+            // Global hardware scanner buffer (works even when rfidInput isn't focused)
+            let scannerBuffer = '';
+            let lastKeyTime = 0;
+            document.addEventListener('keydown', e => {
+                if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.id !== 'rfidInput') return;
+                const scanPanel = document.getElementById('scanPanel');
+                if (!scanPanel || !scanPanel.classList.contains('active-section')) return;
+
+                const now = Date.now();
+                if (now - lastKeyTime > 100) scannerBuffer = '';
+                lastKeyTime = now;
+
+                if (e.key === 'Enter') {
+                    if (scannerBuffer) {
+                        handleScannedUID(scannerBuffer.trim());
+                        scannerBuffer = '';
+                    }
+                } else if (e.key.length === 1) {
+                    scannerBuffer += e.key;
+                }
+            });
+
+            // Auto-refresh every 30 seconds
+            setInterval(async () => {
+                await updateStats();
+                const activePanel = document.querySelector('.section-panel.active-section');
+                if (activePanel) {
+                    if (activePanel.id === 'usersPanel') await renderUsersTable();
+                    else if (activePanel.id === 'logsPanel') await renderLogsTable();
+                }
+            }, 30000);
+        });
+    </script>
 </body>
+
 </html>
