@@ -3,6 +3,8 @@ const cors = require('cors');
 const mysql = require('mysql2');
 const path = require('path');
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Load environment variables from the root .env file
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
@@ -21,6 +23,15 @@ const pool = mysql.createPool({
     queueLimit: 0
 });
 
+const transport = nodemailer.createTransport({
+
+    service: process.env.EMAIL_PROVIDER,
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+
+})
 // Convert pool to use promises
 const promisePool = pool.promise();
 
@@ -47,6 +58,14 @@ app.get('/signup', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/signup.html'));
 });
 
+app.get('/forgot-password', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/forgot-password.html'));
+});
+
+app.get('/reset-password', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/reset-password.html'));
+});
+
 app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/adminDashboard.html'));
 });
@@ -65,21 +84,176 @@ async function comparePassword(plainPassword, hashedPassword) {
     return plainPassword === hashedPassword;
 }
 app.post('/api/admin/forgotpassword', async (req, res) => {
-    const { username } = req.body;
+    const { usernameOrEmail } = req.body;
+
+    if (!usernameOrEmail) {
+        return res.status(400).json({
+            success: false,
+            message: 'Username or Email is required'
+        });
+    }
 
     try {
         const [rows] = await promisePool.query(
-            `SELECT * FROM Admins WHERE username = ?`,
-            [username]
-        )
+            'SELECT * FROM Admins WHERE username = ? OR email = ?',
+            [usernameOrEmail, usernameOrEmail]
+        );
 
-        if (rows.length > 0) {
-            const recoverAccount = rows[0]
+        if (rows.length === 0) {
+            // Generic success response to avoid user enumeration
+            return res.status(200).json({
+                success: true,
+                message: 'If a matching account exists, a password reset code has been sent to the registered email.'
+            });
         }
+
+        const admin = rows[0];
+        const email = admin.email;
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: 'No email address registered for this account. Contact system administrator.'
+            });
+        }
+
+        // Generate a 6-digit verification code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Expiration: 1 hour from now
+        const expires = new Date(Date.now() + 3600000);
+
+        // Store code in DB
+        await promisePool.query(
+            'UPDATE Admins SET reset_token = ?, reset_token_expires = ? WHERE admin_id = ?',
+            [code, expires, admin.admin_id]
+        );
+
+        // Send Email
+        const mailOptions = {
+            from: `"GKAttendance Support" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'GKAttendance - Admin Password Reset Code',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #3b82f6; margin: 0;">GKAttendance</h2>
+                        <p style="color: #64748b; font-size: 14px; margin: 4px 0 0;">Admin Portal Support</p>
+                    </div>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 24px;" />
+                    <p style="font-size: 16px; line-height: 1.5;">Hello <strong>${admin.username}</strong>,</p>
+                    <p style="font-size: 16px; line-height: 1.5;">We received a request to reset the password for your administrator account.</p>
+                    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 24px;">Your password reset verification code is:</p>
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <div style="background-color: #f1f5f9; color: #0f172a; padding: 16px 24px; font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: 700; letter-spacing: 6px; display: inline-block; border-radius: 8px; border: 1px solid #cbd5e1;">${code}</div>
+                    </div>
+                    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 24px; text-align: center; color: #64748b;">This code is valid for <strong>1 hour</strong>.</p>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 24px;" />
+                    <p style="font-size: 12px; line-height: 1.5; color: #94a3b8; text-align: center;">If you did not request this, you can safely ignore this email. Your password will remain unchanged.</p>
+                </div>
+            `
+        };
+
+        await transport.sendMail(mailOptions);
+
+        res.status(200).json({
+            success: true,
+            message: 'If a matching account exists, a password reset code has been sent to the registered email.'
+        });
+
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while processing your request.'
+        });
     }
-    catch (error) {
+});
 
+app.post('/api/admin/verify-reset-code', async (req, res) => {
+    const { code } = req.body;
 
+    if (!code) {
+        return res.status(400).json({
+            success: false,
+            message: 'Verification code is required'
+        });
+    }
+
+    try {
+        const [rows] = await promisePool.query(
+            'SELECT admin_id FROM Admins WHERE reset_token = ? AND reset_token_expires > NOW()',
+            [code]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired verification code'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Verification code is valid'
+        });
+
+    } catch (error) {
+        console.error('Verify reset code error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while verifying code'
+        });
+    }
+});
+
+app.post('/api/admin/resetpassword', async (req, res) => {
+    const { code, password } = req.body;
+
+    if (!code || !password) {
+        return res.status(400).json({
+            success: false,
+            message: 'Verification code and new password are required'
+        });
+    }
+
+    try {
+        // Find admin with code that has not expired
+        const [rows] = await promisePool.query(
+            'SELECT * FROM Admins WHERE reset_token = ? AND reset_token_expires > NOW()',
+            [code]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired verification code'
+            });
+        }
+
+        const admin = rows[0];
+
+        // Hash the new password
+        const hashedPassword = await hashPassword(password);
+
+        // Update password and clear token
+        await promisePool.query(
+            'UPDATE Admins SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE admin_id = ?',
+            [hashedPassword, admin.admin_id]
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Password reset successful. You can now login with your new password.'
+        });
+
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while resetting your password.'
+        });
     }
 });
 // Admin Login Endpoint

@@ -52,10 +52,13 @@ CREATE TABLE IF NOT EXISTS Logging(
 CREATE TABLE IF NOT EXISTS Admins(
     admin_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255),
-    password VARCHAR(255)
+    email VARCHAR(255),
+    password VARCHAR(255),
+    reset_token VARCHAR(255),
+    reset_token_expires DATETIME
 );
 
-INSERT INTO Admins (username, password) VALUES ('admin', 'admin123');
+INSERT INTO Admins (username, email, password) VALUES ('admin', 'gkattendance.noreply@gmail.com', 'admin123');
 
 CREATE USER 'GKAttendance_LowPriority'@'localhost' IDENTIFIED BY 'n0root4u!';
 CREATE USER 'GKAttendance_SuperAdmin'@'localhost' IDENTIFIED BY 'f4llr00taccess!';
