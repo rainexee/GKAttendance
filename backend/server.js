@@ -353,7 +353,6 @@ app.get('/api/user/:id/logs', async (req, res) => {
             SELECT 
                 l.log_id,
                 l.date_logged,
-                l.status,
                 l.user_id
             FROM Logging l
             WHERE l.user_id = ?
