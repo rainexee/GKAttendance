@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 // Load environment variables from the root .env file
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
@@ -23,38 +24,6 @@ const pool = mysql.createPool({
 // Convert pool to use promises
 const promisePool = pool.promise();
 
-// Database Seeding Logic
-async function seedDatabase() {
-    try {
-        // Seed Roles
-        const [roles] = await promisePool.query('SELECT COUNT(*) as count FROM Role');
-        if (roles[0].count === 0) {
-            console.log('Seeding default roles...');
-            const defaultRoles = ['Student', 'Staff', 'Researcher', 'Professor'];
-            for (const role of defaultRoles) {
-                await promisePool.query('INSERT INTO Role (role_name) VALUES (?)', [role]);
-            }
-        }
-
-        // Seed Labs
-        const [labs] = await promisePool.query('SELECT COUNT(*) as count FROM GKLab');
-        if (labs[0].count === 0) {
-            console.log('Seeding default labs...');
-            const defaultLabs = [
-                { code: 'LAB-GRL', name: 'Goks Research Labs' },
-                { code: 'LAB-AI', name: 'Artificial Intelligence Lab' },
-                { code: 'LAB-SEC', name: 'Cybersecurity Lab' }
-            ];
-            for (const lab of defaultLabs) {
-                await promisePool.query('INSERT INTO GKLab (lab_code, lab_name) VALUES (?, ?)', [lab.code, lab.name]);
-            }
-        }
-        console.log('Database check/seeding complete.');
-    } catch (err) {
-        console.error('Error during database seeding:', err);
-    }
-}
-seedDatabase();
 
 // Middleware
 app.use(cors());
@@ -82,19 +51,56 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/adminDashboard.html'));
 });
 
+async function hashPassword(password) {
+    const saltRounds = 10;
+
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    return hashedPassword;
+}
+
+async function comparePassword(plainPassword, hashedPassword) {
+    if (hashedPassword && (hashedPassword.startsWith('$2a$') || hashedPassword.startsWith('$2b$') || hashedPassword.startsWith('$2y$'))) {
+        return await bcrypt.compare(plainPassword, hashedPassword);
+    }
+    return plainPassword === hashedPassword;
+}
+app.post('/api/admin/forgotpassword', async (req, res) => {
+    const { username } = req.body;
+
+    try {
+        const [rows] = await promisePool.query(
+            `SELECT * FROM Admins WHERE username = ?`,
+            [username]
+        )
+
+        if (rows.length > 0) {
+            const recoverAccount = rows[0]
+        }
+    }
+    catch (error) {
+
+
+    }
+});
 // Admin Login Endpoint
 app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
 
     try {
-        // Query the database for the admin
-        // Note: In production, always compare hashed passwords (e.g., using bcrypt)
+        //TO-DO: BCRYPT LOGIN
+
         const [rows] = await promisePool.query(
-            'SELECT * FROM Admins WHERE username = ? AND password = ?',
-            [username, password]
+            'SELECT * FROM Admins WHERE username = ?',
+            [username]
         );
 
+        let loginSuccess = false;
         if (rows.length > 0) {
+            const admin = rows[0];
+            loginSuccess = await comparePassword(password, admin.password);
+        }
+
+        if (loginSuccess) {
             res.status(200).json({
                 success: true,
                 message: 'Login successful',
@@ -458,10 +464,13 @@ app.post('/api/persons', async (req, res) => {
             [unique_id, parseInt(dlsu_idnumber, 10)]
         );
 
+        // Hash password before saving
+        const hashedPassword = await hashPassword(password);
+
         // 2. Insert into Person table
         const [result] = await connection.query(
             'INSERT INTO Person (full_name, username, email, password, lab_id, role_id, unique_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [full_name, username, email, password, lab_id || null, role_id || null, unique_id]
+            [full_name, username, email, hashedPassword, lab_id || null, role_id || null, unique_id]
         );
 
         // Commit transaction
