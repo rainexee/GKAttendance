@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>GKAttendance - User Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: #f1f5f9;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Dashboard Layout */
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo-badge {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.3rem;
+            box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.3);
+        }
+
+        .logo-area h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .nav-item i {
+            width: 24px;
+            font-size: 1.2rem;
+        }
+
+        .nav-item.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            backdrop-filter: blur(4px);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .nav-item:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            color: #cbd5e1;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .user-info {
+            background: rgba(30, 41, 59, 0.6);
+            padding: 8px 20px;
+            border-radius: 40px;
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-info i {
+            font-size: 1.2rem;
+            color: #3b82f6;
+        }
+
+        .logout-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 30px;
+            color: #f87171;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 1.5rem;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #3b82f620, #8b5cf620);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .stat-icon i {
+            font-size: 1.6rem;
+            color: #60a5fa;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Calendar Panel */
+        .calendar-panel {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .calendar-header h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .add-event-btn {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+
+        .add-event-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        #calendar {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 20px;
+            padding: 1rem;
+        }
+
+        /* Attendance Table */
+        .data-panel {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            padding: 1rem;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem 1rem 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .panel-header h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            color: #e2e8f0;
+        }
+
+        .badge-card {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-login {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-logout {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-denied {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .empty-row td {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-content h3 {
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .modal-content input,
+        .modal-content textarea {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px 16px;
+            border-radius: 14px;
+            color: white;
+            margin-bottom: 1rem;
+            font-family: inherit;
+        }
+
+        .modal-content input:focus,
+        .modal-content textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .modal-buttons button {
+            padding: 10px 20px;
+            border-radius: 40px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+
+        .modal-buttons button:first-child {
+            background: rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+        }
+
+        .modal-buttons button:last-child {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+
+        .section-panel {
+            display: none;
+        }
+
+        .section-panel.active-section {
+            display: block;
+        }
+
+        /* Profile Card */
+        .profile-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .profile-info {
+            margin-top: 1rem;
+        }
+
+        .profile-info p {
+            margin: 0.5rem 0;
+            color: #cbd5e1;
+        }
+
+        .profile-info strong {
+            color: #60a5fa;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 80px;
+                padding: 1rem 0.5rem;
+            }
+            .sidebar .logo-area h2,
+            .sidebar .nav-item span:not(i) {
+                display: none;
+            }
+            .logo-area {
+                justify-content: center;
+            }
+            .main-content {
+                margin-left: 80px;
+                padding: 1rem;
+            }
+            .nav-item {
+                justify-content: center;
+            }
+        }
+
+        .fc {
+            background: transparent;
+        }
+
+        .fc .fc-toolbar-title {
+            color: #f1f5f9;
+        }
+
+        .fc .fc-button-primary {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+            color: #60a5fa;
+        }
+
+        .fc .fc-button-primary:hover {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+
+        .fc .fc-daygrid-day {
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .fc .fc-daygrid-day-number {
+            color: #cbd5e1;
+        }
+
+        .fc .fc-col-header-cell {
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .fc .fc-col-header-cell-cushion {
+            color: #94a3b8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="logo-area">
+                <div class="logo-badge">GK</div>
+                <h2>GKAttendance</h2>
+            </div>
+            <div class="nav-menu">
+                <div class="nav-item active" data-tab="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="nav-item" data-tab="calendar">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>My Schedule</span>
+                </div>
+                <div class="nav-item" data-tab="attendance">
+                    <i class="fas fa-clock"></i>
+                    <span>My Attendance</span>
+                </div>
+                <div class="nav-item" data-tab="profile">
+                    <i class="fas fa-user"></i>
+                    <span>My Profile</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="dashboard-header">
+                <div class="page-title" id="dynamic-title">Dashboard</div>
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="userName">User</span>
+                    <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                </div>
+            </div>
+
+            <!-- Dashboard Panel -->
+            <div id="dashboardPanel" class="section-panel active-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-id-card"></i></div>
+                        <div class="stat-value" id="totalAttendanceStat">0</div>
+                        <div class="stat-label">Total Visits</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                        <div class="stat-value" id="todayStatusStat">-</div>
+                        <div class="stat-label">Today's Status</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                        <div class="stat-value" id="thisMonthStat">0</div>
+                        <div class="stat-label">Visits This Month</div>
+                    </div>
+                </div>
+
+                <div class="data-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentActivityBody">
+                                <tr class="empty-row">
+                                    <td colspan="2">No activity recorded yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar Panel -->
+            <div id="calendarPanel" class="section-panel">
+                <div class="calendar-panel">
+                    <div class="calendar-header">
+                        <h3><i class="fas fa-calendar-alt"></i> My Schedule</h3>
+                        <button class="add-event-btn" id="addEventBtn">
+                            <i class="fas fa-plus"></i> Add Event
+                        </button>
+                    </div>
+                    <div id="calendar"></div>
+                </div>
+            </div>
+
+            <!-- Attendance Panel -->
+            <div id="attendancePanel" class="section-panel">
+                <div class="data-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-clock"></i> My Attendance History</h3>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Log ID</th>
+                                    <th>Date & Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody">
+                                <tr class="empty-row">
+                                    <td colspan="3">No attendance records found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Panel -->
+            <div id="profilePanel" class="section-panel">
+                <div class="profile-card">
+                    <div class="profile-avatar" id="profileAvatar">
+                        <span>👤</span>
+                    </div>
+                    <div class="profile-info">
+                        <p><strong>Full Name:</strong> <span id="profileFullName">—</span></p>
+                        <p><strong>DLSU ID:</strong> <span id="profileDLSU">—</span></p>
+                        <p><strong>Email:</strong> <span id="profileEmail">—</span></p>
+                        <p><strong>Username:</strong> <span id="profileUsername">—</span></p>
+                        <p><strong>Role:</strong> <span id="profileRole">—</span></p>
+                        <p><strong>Lab:</strong> <span id="profileLab">—</span></p>
+                        <p><strong>Card UID:</strong> <span id="profileUID">—</span></p>
+                        <p><strong>Member Since:</strong> <span id="profileSince">—</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Event Modal -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <h3><i class="fas fa-plus-circle"></i> Add Schedule Event</h3>
+            <input type="text" id="eventTitle" placeholder="Event Title" required>
+            <input type="datetime-local" id="eventStart" required>
+            <input type="datetime-local" id="eventEnd" required>
+            <textarea id="eventDescription" placeholder="Description (optional)" rows="3"></textarea>
+            <div class="modal-buttons">
+                <button onclick="closeModal()">Cancel</button>
+                <button onclick="saveEvent()">Save Event</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Base URL
+        const API_BASE_URL = window.location.origin;
+        
+        // User data store
+        let currentUser = null;
+        let userAttendance = [];
+        let calendarEvents = [];
+        let calendar = null;
+
+        // Check authentication and get user role
+        async function checkAuth() {
+            const token = localStorage.getItem('userToken');
+            if (!token) {
+                window.location.href = '/login';
+                return false;
+            }
+            
+            // Get user info from localStorage or session
+            const userStr = localStorage.getItem('currentUser');
+            if (userStr) {
+                currentUser = JSON.parse(userStr);
+                updateUserDisplay();
+                return true;
+            }
+            
+            return false;
+        }
+
+        // Update user display
+        function updateUserDisplay() {
+            if (currentUser) {
+                document.getElementById('userName').innerText = currentUser.full_name || currentUser.username || 'User';
+                document.getElementById('profileFullName').innerText = currentUser.full_name || '—';
+                document.getElementById('profileDLSU').innerText = currentUser.dlsu_idnumber || '—';
+                document.getElementById('profileEmail').innerText = currentUser.email || '—';
+                document.getElementById('profileUsername').innerText = currentUser.username || '—';
+                document.getElementById('profileRole').innerText = currentUser.role_name || '—';
+                document.getElementById('profileLab').innerText = currentUser.lab_name || '—';
+                document.getElementById('profileUID').innerText = currentUser.unique_id || '—';
+                document.getElementById('profileSince').innerText = currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString() : '—';
+                
+                const initial = currentUser.full_name ? currentUser.full_name.charAt(0).toUpperCase() : '👤';
+                document.querySelector('#profileAvatar span').innerHTML = initial;
+            }
+        }
+
+        // Fetch user's attendance logs
+        async function fetchUserAttendance() {
+            try {
+                const userId = currentUser?.user_id;
+                const response = await fetch(`${API_BASE_URL}/api/user/${userId}/logs`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    userAttendance = data.data;
+                    return userAttendance;
+                }
+                return [];
+            } catch (error) {
+                console.error('Error fetching attendance:', error);
+                return [];
+            }
+        }
+
+        // Fetch user stats
+        async function fetchUserStats() {
+            try {
+                const userId = currentUser?.user_id;
+                const response = await fetch(`${API_BASE_URL}/api/user/${userId}/stats`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    return data.data;
+                }
+                return { totalVisits: 0, todayStatus: 'No record', thisMonthVisits: 0 };
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+                return { totalVisits: 0, todayStatus: 'No record', thisMonthVisits: 0 };
+            }
+        }
+
+        // Update dashboard stats
+        async function updateUserStats() {
+            const stats = await fetchUserStats();
+            document.getElementById('totalAttendanceStat').innerText = stats.totalVisits || 0;
+            document.getElementById('todayStatusStat').innerHTML = getStatusBadge(stats.todayStatus);
+            document.getElementById('thisMonthStat').innerText = stats.thisMonthVisits || 0;
+        }
+
+        function getStatusBadge(status) {
+            if (status === 'LOGIN') {
+                return '<span class="badge-login"><i class="fas fa-circle"></i> Inside Lab</span>';
+            } else if (status === 'LOGOUT') {
+                return '<span class="badge-logout"><i class="fas fa-door-open"></i> Logged Out</span>';
+            } else if (status === 'DENIED_AFTER_HOURS') {
+                return '<span class="badge-denied"><i class="fas fa-clock"></i> After Hours</span>';
+            }
+            return '<span class="badge-card">No record</span>';
+        }
+
+        // Render attendance history
+        async function renderAttendanceHistory() {
+            const logs = await fetchUserAttendance();
+            const tbody = document.getElementById('attendanceTableBody');
+            
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="3">No attendance records found.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = logs.map(log => `
+                <tr>
+                    <td>${escapeHtml(String(log.log_id || ''))}</td>
+                    <td>${formatDate(log.date_logged)}</td>
+                    <td>${getStatusBadge(log.status)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Render recent activity
+        async function renderRecentActivity() {
+            const logs = await fetchUserAttendance();
+            const recentLogs = logs.slice(0, 10);
+            const tbody = document.getElementById('recentActivityBody');
+            
+            if (!recentLogs || recentLogs.length === 0) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="2">No activity recorded yet.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = recentLogs.map(log => `
+                <tr>
+                    <td>${formatDate(log.date_logged)}</td>
+                    <td>${getStatusBadge(log.status)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Calendar functions
+        function loadCalendarEvents() {
+            const saved = localStorage.getItem(`calendar_events_${currentUser?.user_id}`);
+            if (saved) {
+                calendarEvents = JSON.parse(saved);
+                calendarEvents.forEach(event => {
+                    event.start = event.start ? new Date(event.start) : null;
+                    event.end = event.end ? new Date(event.end) : null;
+                });
+            }
+            return calendarEvents;
+        }
+
+        function saveCalendarEvents() {
+            const eventsToSave = calendarEvents.map(event => ({
+                ...event,
+                start: event.start ? event.start.toISOString() : null,
+                end: event.end ? event.end.toISOString() : null
+            }));
+            localStorage.setItem(`calendar_events_${currentUser?.user_id}`, JSON.stringify(eventsToSave));
+        }
+
+        function initCalendar() {
+            loadCalendarEvents();
+            
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                themeSystem: 'standard',
+                events: calendarEvents.map(event => ({
+                    id: event.id,
+                    title: event.title,
+                    start: event.start,
+                    end: event.end,
+                    description: event.description
+                })),
+                eventClick: function(info) {
+                    if (confirm(`Delete event "${info.event.title}"?`)) {
+                        calendarEvents = calendarEvents.filter(e => e.id !== parseInt(info.event.id));
+                        saveCalendarEvents();
+                        info.event.remove();
+                    }
+                },
+                height: 'auto',
+                editable: true,
+                selectable: true
+            });
+            calendar.render();
+        }
+
+        function addEvent() {
+            document.getElementById('eventModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('eventModal').classList.remove('active');
+            document.getElementById('eventTitle').value = '';
+            document.getElementById('eventStart').value = '';
+            document.getElementById('eventEnd').value = '';
+            document.getElementById('eventDescription').value = '';
+        }
+
+        function saveEvent() {
+            const title = document.getElementById('eventTitle').value.trim();
+            const start = document.getElementById('eventStart').value;
+            const end = document.getElementById('eventEnd').value;
+            const description = document.getElementById('eventDescription').value;
+            
+            if (!title || !start) {
+                alert('Please enter event title and start time');
+                return;
+            }
+            
+            const newEvent = {
+                id: Date.now(),
+                title: title,
+                start: new Date(start),
+                end: end ? new Date(end) : null,
+                description: description
+            };
+            
+            calendarEvents.push(newEvent);
+            saveCalendarEvents();
+            calendar.addEvent({
+                id: newEvent.id,
+                title: newEvent.title,
+                start: newEvent.start,
+                end: newEvent.end,
+                description: newEvent.description
+            });
+            
+            closeModal();
+        }
+
+        // Helper functions
+        function formatDate(isoString) {
+            if (!isoString) return 'N/A';
+            try {
+                const d = new Date(isoString);
+                return d.toLocaleString(undefined, { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            } catch (e) {
+                return isoString;
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        // Tab switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.section-panel').forEach(panel => panel.classList.remove('active-section'));
+            document.getElementById(`${tabId}Panel`).classList.add('active-section');
+            
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelector(`.nav-item[data-tab="${tabId}"]`).classList.add('active');
+            
+            const titles = { dashboard: 'Dashboard', calendar: 'My Schedule', attendance: 'My Attendance', profile: 'My Profile' };
+            document.getElementById('dynamic-title').innerText = titles[tabId] || '';
+            
+            // Refresh data when switching tabs
+            if (tabId === 'dashboard') {
+                updateUserStats();
+                renderRecentActivity();
+            } else if (tabId === 'attendance') {
+                renderAttendanceHistory();
+            } else if (tabId === 'calendar' && calendar) {
+                calendar.render();
+            }
+        }
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('userRole');
+            alert('Logged out successfully');
+            window.location.href = '/login';
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', async () => {
+            const isLoggedIn = await checkAuth();
+            if (!isLoggedIn) return;
+            
+            // Load initial data
+            await updateUserStats();
+            await renderRecentActivity();
+            await renderAttendanceHistory();
+            initCalendar();
+            
+            // Nav listeners
+            document.querySelectorAll('.nav-item[data-tab]').forEach(nav => {
+                nav.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const tab = nav.getAttribute('data-tab');
+                    if (tab) switchTab(tab);
+                });
+            });
+            
+            // Logout button
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            
+            // Add event button
+            document.getElementById('addEventBtn').addEventListener('click', addEvent);
+            
+            // Close modal on outside click
+            document.getElementById('eventModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('eventModal')) {
+                    closeModal();
+                }
+            });
+            
+            // Auto-refresh every 30 seconds
+            setInterval(async () => {
+                const activePanel = document.querySelector('.section-panel.active-section');
+                if (activePanel && activePanel.id === 'dashboardPanel') {
+                    await updateUserStats();
+                    await renderRecentActivity();
+                } else if (activePanel && activePanel.id === 'attendancePanel') {
+                    await renderAttendanceHistory();
+                }
+            }, 30000);
+        });
+    </script>
+</body>
+
+</html>

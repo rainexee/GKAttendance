@@ -8,68 +8,82 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const username = usernameInput.value.trim();
-        const password = passwordInput.value;
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
         
-        if (!username || !password) {
-            showMessage('Please enter both username and password.', 'error');
-            return;
-        }
-
-        // Add loading state
-        submitBtn.classList.add('loading');
+        const submitBtn = document.querySelector('.login-btn');
+        const btnSpinner = document.getElementById('btn-spinner');
+        const messageDiv = document.getElementById('message');
+        
+        // Show loading state
         submitBtn.disabled = true;
-        messageEl.classList.add('hidden');
-
+        btnSpinner.style.display = 'inline-block';
+        messageDiv.classList.add('hidden');
+        
         try {
-            // Simulate API call to backend
-            const response = await fetch('http://localhost:3000/api/admin/login', {
+            // First try admin login
+            let response = await fetch('/api/admin/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                showMessage('Login successful! Redirecting...', 'success');
-                // Simulate redirect
-                setTimeout(() => {
-                    window.location.href = "adminDashboard.html";
-                }, 1500);
+            
+            let data = await response.json();
+            
+            if (data.success) {
+                // Admin login successful
+                localStorage.setItem('adminToken', data.token);
+                localStorage.setItem('userRole', 'admin');
+                messageDiv.className = 'message success';
+                messageDiv.innerHTML = '<i class="fas fa-check-circle"></i> Admin login successful! Redirecting...';
+                messageDiv.classList.remove('hidden');
                 
+                setTimeout(() => {
+                    window.location.href = '/dashboard';
+                }, 1000);
+                return;
+            }
+            
+            // If admin login fails, try user login
+            response = await fetch('/api/user/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            
+            data = await response.json();
+            
+            if (data.success) {
+                // User login successful
+                localStorage.setItem('userToken', data.token);
+                localStorage.setItem('userRole', data.role || 'user');
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
+                
+                messageDiv.className = 'message success';
+                messageDiv.innerHTML = '<i class="fas fa-check-circle"></i> Login successful! Redirecting...';
+                messageDiv.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    window.location.href = '/userdashboard';
+                }, 1000);
             } else {
-                showMessage(data.message || 'Invalid credentials. Please try again.', 'error');
-                submitBtn.classList.remove('loading');
-                submitBtn.disabled = false;
-                
-                // Add a subtle shake animation for error
-                form.style.animation = 'none';
-                setTimeout(() => {
-                    form.style.animation = 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both';
-                }, 10);
+                // Both logins failed
+                messageDiv.className = 'message error';
+                messageDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Invalid username or password';
+                messageDiv.classList.remove('hidden');
             }
         } catch (error) {
-            // If backend is not running, we'll simulate a mock response for demonstration
-            console.warn('Backend not reachable, using mock response', error);
-            
-            setTimeout(() => {
-                if (username === 'admin' && password === 'admin123') {
-                    showMessage('Mock Login successful! Redirecting...', 'success');
-                } else {
-                    showMessage('Invalid credentials. (Hint: admin/admin123)', 'error');
-                    form.style.animation = 'none';
-                    setTimeout(() => {
-                        form.style.animation = 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both';
-                    }, 10);
-                }
-                submitBtn.classList.remove('loading');
-                submitBtn.disabled = false;
-            }, 1000);
+            console.error('Login error:', error);
+            messageDiv.className = 'message error';
+            messageDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Server error. Please try again.';
+            messageDiv.classList.remove('hidden');
+        } finally {
+            submitBtn.disabled = false;
+            btnSpinner.style.display = 'none';
         }
     });
+
+    
 
     function showMessage(text, type) {
         messageEl.textContent = text;
