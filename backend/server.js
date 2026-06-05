@@ -82,6 +82,10 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/adminDashboard.html'));
 });
 
+app.get('/userdashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/userDashboard.html'));
+});
+
 // Admin Login Endpoint
 app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
@@ -99,6 +103,177 @@ app.post('/api/admin/login', async (req, res) => {
                 success: true,
                 message: 'Login successful',
                 token: 'mock-jwt-token-xyz789' // In production, generate a real JWT
+            });
+        } else {
+            res.status(401).json({
+                success: false,
+                message: 'Invalid username or password'
+            });
+        }
+    } catch (error) {
+        console.error('Database query error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+});
+
+app.get('/api/user/:id', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const [rows] = await promisePool.query(`
+            SELECT 
+                p.user_id,
+                p.full_name,
+                p.username,
+                p.email,
+                p.lab_id,
+                p.role_id,
+                p.created_at,
+                p.unique_id,
+                r.role_name,
+                gl.lab_code,
+                gl.lab_name,
+                i.dlsu_idnumber
+            FROM Person p
+            LEFT JOIN Role r ON p.role_id = r.role_id
+            LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
+            LEFT JOIN ID i ON p.unique_id = i.unique_id
+            WHERE p.user_id = ?
+        `, [id]);
+        
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            data: rows[0]
+        });
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching user data'
+        });
+    }
+});
+
+// Get user's attendance logs
+app.get('/api/user/:id/logs', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const [rows] = await promisePool.query(`
+            SELECT 
+                l.log_id,
+                l.date_logged,
+                l.status,
+                l.user_id
+            FROM Logging l
+            WHERE l.user_id = ?
+            ORDER BY l.date_logged DESC
+        `, [id]);
+        
+        res.status(200).json({
+            success: true,
+            data: rows
+        });
+    } catch (error) {
+        console.error('Error fetching user logs:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching attendance logs'
+        });
+    }
+});
+
+// Get user statistics
+app.get('/api/user/:id/stats', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        // Total visits (both LOGIN and LOGOUT count as visits)
+        const [totalVisits] = await promisePool.query(
+            'SELECT COUNT(*) as count FROM Logging WHERE user_id = ? AND status IN ("LOGIN", "LOGOUT")',
+            [id]
+        );
+        
+        // Today's latest status
+        const [todayStatus] = await promisePool.query(`
+            SELECT status, date_logged 
+            FROM Logging 
+            WHERE user_id = ? AND DATE(date_logged) = CURDATE() 
+            ORDER BY date_logged DESC 
+            LIMIT 1
+        `, [id]);
+        
+        // This month's visits
+        const [thisMonth] = await promisePool.query(`
+            SELECT COUNT(*) as count FROM Logging 
+            WHERE user_id = ? 
+            AND MONTH(date_logged) = MONTH(CURDATE()) 
+            AND YEAR(date_logged) = YEAR(CURDATE())
+            AND status IN ("LOGIN", "LOGOUT")
+        `, [id]);
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                totalVisits: totalVisits[0].count,
+                todayStatus: todayStatus.length > 0 ? todayStatus[0].status : null,
+                thisMonthVisits: thisMonth[0].count
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching user stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching statistics'
+        });
+    }
+});
+
+// User login (returns role info for RBAC)
+app.post('/api/user/login', async (req, res) => {
+    const { username, password } = req.body;
+    
+    try {
+        const [rows] = await promisePool.query(`
+            SELECT 
+                p.user_id,
+                p.full_name,
+                p.username,
+                p.email,
+                p.unique_id,
+                p.created_at,
+                r.role_name,
+                r.role_id,
+                gl.lab_name,
+                i.dlsu_idnumber
+            FROM Person p
+            LEFT JOIN Role r ON p.role_id = r.role_id
+            LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
+            LEFT JOIN ID i ON p.unique_id = i.unique_id
+            WHERE p.username = ? AND p.password = ?
+        `, [username, password]);
+        
+        if (rows.length > 0) {
+            const user = rows[0];
+            // Determine if user is admin (you can have a separate admin check or use role_id)
+            const isAdmin = user.role_name === 'Admin' || user.role_id === 1; // Adjust as needed
+            
+            res.status(200).json({
+                success: true,
+                message: 'Login successful',
+                token: 'mock-jwt-token-' + Date.now(),
+                role: isAdmin ? 'admin' : 'user',
+                user: user
             });
         } else {
             res.status(401).json({
