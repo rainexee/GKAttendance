@@ -6,9 +6,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const usernameOrEmail = usernameOrEmailInput.value.trim();
-        
+
         if (!usernameOrEmail) {
             showMessage('Please enter your username or email.', 'error');
             return;
@@ -20,7 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
         messageEl.classList.add('hidden');
 
         try {
-            const response = await fetch('/api/admin/forgotpassword', {
+            // 1. Try the User route first
+            let response = await fetch('/api/user/forgotpassword', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -28,8 +29,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ usernameOrEmail })
             });
 
-            const data = await response.json();
+            let data = await response.json();
 
+            // 2. If user is not found (404), dynamically try the Admin route instead
+            if (response.status === 404) {
+                response = await fetch('/api/admin/forgotpassword', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ usernameOrEmail })
+                });
+
+                data = await response.json();
+            }
+
+            // 3. Handle the final result (whether it succeeded as User or Admin)
             if (response.ok) {
                 showMessage(data.message || 'Password reset code sent to your registered email.', 'success');
                 usernameOrEmailInput.value = '';
@@ -37,8 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.href = '/reset-password';
                 }, 2000);
             } else {
-                showMessage(data.message || 'Error occurred. Please try again.', 'error');
-                
+                showMessage(data.message || 'No account found with that username or email.', 'error');
+
                 // Add a subtle shake animation for error
                 form.style.animation = 'none';
                 setTimeout(() => {

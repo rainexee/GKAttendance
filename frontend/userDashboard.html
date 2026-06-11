@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>GKAttendance - User Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
@@ -305,7 +306,8 @@
             border-collapse: collapse;
         }
 
-        th, td {
+        th,
+        td {
             padding: 1rem 1rem;
             text-align: left;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -407,6 +409,7 @@
                 opacity: 0;
                 transform: translateY(-20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -510,17 +513,21 @@
                 width: 80px;
                 padding: 1rem 0.5rem;
             }
+
             .sidebar .logo-area h2,
             .sidebar .nav-item span:not(i) {
                 display: none;
             }
+
             .logo-area {
                 justify-content: center;
             }
+
             .main-content {
                 margin-left: 80px;
                 padding: 1rem;
             }
+
             .nav-item {
                 justify-content: center;
             }
@@ -697,6 +704,7 @@
                         <p><strong>Role:</strong> <span id="profileRole">—</span></p>
                         <p><strong>Lab:</strong> <span id="profileLab">—</span></p>
                         <p><strong>Card UID:</strong> <span id="profileUID">—</span></p>
+                        <!-- removing Card UID breaks everything, will fix later what the fuck-->
                         <p><strong>Member Since:</strong> <span id="profileSince">—</span></p>
                     </div>
                 </div>
@@ -722,7 +730,7 @@
     <script>
         // API Base URL
         const API_BASE_URL = window.location.origin;
-        
+
         // User data store
         let currentUser = null;
         let userAttendance = [];
@@ -736,7 +744,7 @@
                 window.location.href = '/login';
                 return false;
             }
-            
+
             // Get user info from localStorage or session
             const userStr = localStorage.getItem('currentUser');
             if (userStr) {
@@ -744,7 +752,7 @@
                 updateUserDisplay();
                 return true;
             }
-            
+
             return false;
         }
 
@@ -760,7 +768,7 @@
                 document.getElementById('profileLab').innerText = currentUser.lab_name || '—';
                 document.getElementById('profileUID').innerText = currentUser.unique_id || '—';
                 document.getElementById('profileSince').innerText = currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString() : '—';
-                
+
                 const initial = currentUser.full_name ? currentUser.full_name.charAt(0).toUpperCase() : '👤';
                 document.querySelector('#profileAvatar span').innerHTML = initial;
             }
@@ -772,7 +780,7 @@
                 const userId = currentUser?.user_id;
                 const response = await fetch(`${API_BASE_URL}/api/user/${userId}/logs`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     userAttendance = data.data;
                     return userAttendance;
@@ -790,7 +798,7 @@
                 const userId = currentUser?.user_id;
                 const response = await fetch(`${API_BASE_URL}/api/user/${userId}/stats`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     return data.data;
                 }
@@ -824,12 +832,12 @@
         async function renderAttendanceHistory() {
             const logs = await fetchUserAttendance();
             const tbody = document.getElementById('attendanceTableBody');
-            
+
             if (!logs || logs.length === 0) {
                 tbody.innerHTML = '<tr class="empty-row"><td colspan="3">No attendance records found.</td></tr>';
                 return;
             }
-            
+
             tbody.innerHTML = logs.map(log => `
                 <tr>
                     <td>${escapeHtml(String(log.log_id || ''))}</td>
@@ -844,12 +852,12 @@
             const logs = await fetchUserAttendance();
             const recentLogs = logs.slice(0, 10);
             const tbody = document.getElementById('recentActivityBody');
-            
+
             if (!recentLogs || recentLogs.length === 0) {
                 tbody.innerHTML = '<tr class="empty-row"><td colspan="2">No activity recorded yet.</td></tr>';
                 return;
             }
-            
+
             tbody.innerHTML = recentLogs.map(log => `
                 <tr>
                     <td>${formatDate(log.date_logged)}</td>
@@ -882,7 +890,7 @@
 
         function initCalendar() {
             loadCalendarEvents();
-            
+
             const calendarEl = document.getElementById('calendar');
             calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
@@ -899,7 +907,7 @@
                     end: event.end,
                     description: event.description
                 })),
-                eventClick: function(info) {
+                eventClick: function (info) {
                     if (confirm(`Delete event "${info.event.title}"?`)) {
                         calendarEvents = calendarEvents.filter(e => e.id !== parseInt(info.event.id));
                         saveCalendarEvents();
@@ -930,12 +938,12 @@
             const start = document.getElementById('eventStart').value;
             const end = document.getElementById('eventEnd').value;
             const description = document.getElementById('eventDescription').value;
-            
+
             if (!title || !start) {
                 alert('Please enter event title and start time');
                 return;
             }
-            
+
             const newEvent = {
                 id: Date.now(),
                 title: title,
@@ -943,7 +951,7 @@
                 end: end ? new Date(end) : null,
                 description: description
             };
-            
+
             calendarEvents.push(newEvent);
             saveCalendarEvents();
             calendar.addEvent({
@@ -953,7 +961,7 @@
                 end: newEvent.end,
                 description: newEvent.description
             });
-            
+
             closeModal();
         }
 
@@ -962,12 +970,12 @@
             if (!isoString) return 'N/A';
             try {
                 const d = new Date(isoString);
-                return d.toLocaleString(undefined, { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
+                return d.toLocaleString(undefined, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
                 });
             } catch (e) {
                 return isoString;
@@ -976,7 +984,7 @@
 
         function escapeHtml(str) {
             if (!str) return '';
-            return String(str).replace(/[&<>]/g, function(m) {
+            return String(str).replace(/[&<>]/g, function (m) {
                 if (m === '&') return '&amp;';
                 if (m === '<') return '&lt;';
                 if (m === '>') return '&gt;';
@@ -988,13 +996,13 @@
         function switchTab(tabId) {
             document.querySelectorAll('.section-panel').forEach(panel => panel.classList.remove('active-section'));
             document.getElementById(`${tabId}Panel`).classList.add('active-section');
-            
+
             document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
             document.querySelector(`.nav-item[data-tab="${tabId}"]`).classList.add('active');
-            
+
             const titles = { dashboard: 'Dashboard', calendar: 'My Schedule', attendance: 'My Attendance', profile: 'My Profile' };
             document.getElementById('dynamic-title').innerText = titles[tabId] || '';
-            
+
             // Refresh data when switching tabs
             if (tabId === 'dashboard') {
                 updateUserStats();
@@ -1011,7 +1019,7 @@
             localStorage.removeItem('userToken');
             localStorage.removeItem('currentUser');
             localStorage.removeItem('userRole');
-            alert('Logged out successfully');
+
             window.location.href = '/login';
         }
 
@@ -1019,13 +1027,13 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const isLoggedIn = await checkAuth();
             if (!isLoggedIn) return;
-            
+
             // Load initial data
             await updateUserStats();
             await renderRecentActivity();
             await renderAttendanceHistory();
             initCalendar();
-            
+
             // Nav listeners
             document.querySelectorAll('.nav-item[data-tab]').forEach(nav => {
                 nav.addEventListener('click', (e) => {
@@ -1034,20 +1042,20 @@
                     if (tab) switchTab(tab);
                 });
             });
-            
+
             // Logout button
             document.getElementById('logoutBtn').addEventListener('click', logout);
-            
+
             // Add event button
             document.getElementById('addEventBtn').addEventListener('click', addEvent);
-            
+
             // Close modal on outside click
             document.getElementById('eventModal').addEventListener('click', (e) => {
                 if (e.target === document.getElementById('eventModal')) {
                     closeModal();
                 }
             });
-            
+
             // Auto-refresh every 30 seconds
             setInterval(async () => {
                 const activePanel = document.querySelector('.section-panel.active-section');

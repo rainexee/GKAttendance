@@ -46,12 +46,42 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'GKAttendance API is running' });
 });
 
+// Get all scan logs for the admin dashboard
+app.get('/api/logs', async (req, res) => {
+    try {
+        const [rows] = await promisePool.query(`
+            SELECT
+                l.log_id,
+                l.date_logged,
+                l.status,
+                p.full_name,
+                p.unique_id,
+                r.role_name,
+                gl.lab_name
+            FROM Logging l
+            LEFT JOIN Person p ON l.user_id = p.user_id
+            LEFT JOIN Role r ON p.role_id = r.role_id
+            LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
+            ORDER BY l.date_logged DESC
+            LIMIT 500
+        `);
+        res.status(200).json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Error fetching logs:', error);
+        res.status(500).json({ success: false, message: 'Error fetching logs' });
+    }
+});
+
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
 
 app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/login.html'));
+});
+
+app.get('/userlogin', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/userLogin.html'));
 });
 
 app.get('/signup', (req, res) => {
@@ -87,6 +117,208 @@ async function comparePassword(plainPassword, hashedPassword) {
     }
     return plainPassword === hashedPassword;
 }
+
+// USER Forgot Password
+app.post('/api/user/forgotpassword', async (req, res) => {
+    const { usernameOrEmail } = req.body;
+
+    if (!usernameOrEmail) {
+        return res.status(400).json({
+            success: false,
+            message: 'Username or Email is required'
+        });
+    }
+
+    try {
+        const [rows] = await promisePool.query(
+            'SELECT * FROM Person WHERE username = ? OR email = ?',
+            [usernameOrEmail, usernameOrEmail]
+        );
+
+        if (rows.length === 0) {
+            // Generic success response to avoid user enumeration
+            return res.status(200).json({
+                success: true,
+                message: 'If a matching account exists, a password reset code has been sent to the registered email.'
+            });
+        }
+
+        const person = rows[0];
+        const email = person.email;
+
+        if (!email) {
+            // FIXED: Provided an accurate message for missing emails to match admin behavior
+            return res.status(400).json({
+                success: false,
+                message: 'No email address registered for this account. Contact system administrator.'
+            });
+        }
+
+        // Generate a 6-digit verification code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Expiration: 1 hour from now
+        const expires = new Date(Date.now() + 3600000);
+
+        // Store code in DB
+        await promisePool.query(
+            'UPDATE Person SET reset_token = ?, reset_token_expires = ? WHERE user_id = ?',
+            [code, expires, person.user_id]
+        );
+
+        // Send Email
+        const mailOptions = {
+            from: `"GKAttendance Support" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'GKAttendance - Password Reset Code',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #3b82f6; margin: 0;">GKAttendance</h2>
+                        <p style="color: #64748b; font-size: 14px; margin: 4px 0 0;"> Portal Support</p>
+                    </div>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 24px;" />
+                    <p style="font-size: 16px; line-height: 1.5;">Hello <strong>${person.username}</strong>,</p>
+                    <p style="font-size: 16px; line-height: 1.5;">We received a request to reset the password for your account.</p>
+                    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 24px;">Your password reset verification code is:</p>
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <div style="background-color: #f1f5f9; color: #0f172a; padding: 16px 24px; font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: 700; letter-spacing: 6px; display: inline-block; border-radius: 8px; border: 1px solid #cbd5e1;">${code}</div>
+                    </div>
+                    <p style="font-size: 16px; line-height: 1.5; margin-bottom: 24px; text-align: center; color: #64748b;">This code is valid for <strong>1 hour</strong>.</p>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 24px;" />
+                    <p style="font-size: 12px; line-height: 1.5; color: #94a3b8; text-align: center;">If you did not request this, you can safely ignore this email. Your password will remain unchanged.</p>
+                </div>
+            `
+        };
+
+        await transport.sendMail(mailOptions);
+
+        res.status(200).json({
+            success: true,
+            message: 'If a matching account exists, a password reset code has been sent to the registered email.'
+        });
+
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while processing your request.'
+        });
+    }
+});
+
+app.post('/api/user/verify-reset-code', async (req, res) => {
+    const { code } = req.body;
+
+    if (!code) {
+        return res.status(400).json({ success: false, message: 'Verification code is required' });
+    }
+
+    try {
+        // FIXED: Passing Node.js's new Date()
+        const [rows] = await promisePool.query(
+            'SELECT user_id FROM Person WHERE reset_token = ? AND reset_token_expires > ?',
+            [code, new Date()]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
+        }
+
+        return res.status(200).json({ success: true, message: 'Verification code is valid' });
+
+    } catch (error) {
+        console.error('Verify reset code error:', error);
+        return res.status(500).json({ success: false, message: 'Server error while verifying code' });
+    }
+});
+
+app.post('/api/user/resetpassword', async (req, res) => {
+    const { code, password } = req.body;
+
+    if (!code || !password) {
+        return res.status(400).json({ success: false, message: 'Verification code and new password are required' });
+    }
+
+    try {
+        // FIXED: Passing Node.js's new Date()
+        const [rows] = await promisePool.query(
+            'SELECT * FROM Person WHERE reset_token = ? AND reset_token_expires > ?',
+            [code, new Date()]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
+        }
+
+        const user = rows[0];
+        const hashedPassword = await hashPassword(password);
+
+        await promisePool.query(
+            'UPDATE Person SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE user_id = ?',
+            [hashedPassword, user.user_id]
+        );
+
+        res.status(200).json({ success: true, message: 'Password reset successful. You can now login with your new password.' });
+
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ success: false, message: 'An error occurred while resetting your password.' });
+    }
+});
+// USER Reset Password
+app.post('/api/user/resetpassword', async (req, res) => {
+    const { code, password } = req.body;
+
+    if (!code || !password) {
+        return res.status(400).json({
+            success: false,
+            message: 'Verification code and new password are required'
+        });
+    }
+
+    try {
+        // Find user with code that has not expired
+        const [rows] = await promisePool.query(
+            'SELECT * FROM Person WHERE reset_token = ? AND reset_token_expires > NOW()',
+            [code]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired verification code'
+            });
+        }
+
+        // FIXED: Changed variable name from 'admin' to 'user' to maintain context clarity
+        const user = rows[0];
+
+        // Hash the new password
+        const hashedPassword = await hashPassword(password);
+
+        // FIXED: Changed 'person.user_id' to 'user.user_id' to resolve the ReferenceError crash
+        await promisePool.query(
+            'UPDATE Person SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE user_id = ?',
+            [hashedPassword, user.user_id]
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Password reset successful. You can now login with your new password.'
+        });
+
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while resetting your password.'
+        });
+    }
+});
+
+
+//Admin Forgot Password
 app.post('/api/admin/forgotpassword', async (req, res) => {
     const { usernameOrEmail } = req.body;
 
@@ -178,37 +410,25 @@ app.post('/api/admin/verify-reset-code', async (req, res) => {
     const { code } = req.body;
 
     if (!code) {
-        return res.status(400).json({
-            success: false,
-            message: 'Verification code is required'
-        });
+        return res.status(400).json({ success: false, message: 'Verification code is required' });
     }
 
     try {
+        // FIXED: Passing Node.js's new Date()
         const [rows] = await promisePool.query(
-            'SELECT admin_id FROM Admins WHERE reset_token = ? AND reset_token_expires > NOW()',
-            [code]
+            'SELECT admin_id FROM Admins WHERE reset_token = ? AND reset_token_expires > ?',
+            [code, new Date()]
         );
 
         if (rows.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid or expired verification code'
-            });
+            return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
         }
 
-        return res.status(200).json({
-            success: true,
-            message: 'Verification code is valid'
-        });
+        return res.status(200).json({ success: true, message: 'Verification code is valid' });
 
     } catch (error) {
         console.error('Verify reset code error:', error);
-
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while verifying code'
-        });
+        return res.status(500).json({ success: false, message: 'Server error while verifying code' });
     }
 });
 
@@ -216,50 +436,37 @@ app.post('/api/admin/resetpassword', async (req, res) => {
     const { code, password } = req.body;
 
     if (!code || !password) {
-        return res.status(400).json({
-            success: false,
-            message: 'Verification code and new password are required'
-        });
+        return res.status(400).json({ success: false, message: 'Verification code and new password are required' });
     }
 
     try {
-        // Find admin with code that has not expired
+        // FIXED: Passing Node.js's new Date()
         const [rows] = await promisePool.query(
-            'SELECT * FROM Admins WHERE reset_token = ? AND reset_token_expires > NOW()',
-            [code]
+            'SELECT * FROM Admins WHERE reset_token = ? AND reset_token_expires > ?',
+            [code, new Date()]
         );
 
         if (rows.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid or expired verification code'
-            });
+            return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
         }
 
         const admin = rows[0];
-
-        // Hash the new password
         const hashedPassword = await hashPassword(password);
 
-        // Update password and clear token
         await promisePool.query(
             'UPDATE Admins SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE admin_id = ?',
             [hashedPassword, admin.admin_id]
         );
 
-        res.status(200).json({
-            success: true,
-            message: 'Password reset successful. You can now login with your new password.'
-        });
+        res.status(200).json({ success: true, message: 'Password reset successful. You can now login with your new password.' });
 
     } catch (error) {
         console.error('Reset password error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'An error occurred while resetting your password.'
-        });
+        res.status(500).json({ success: false, message: 'An error occurred while resetting your password.' });
     }
 });
+
+
 // Admin Login Endpoint
 app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
@@ -373,6 +580,33 @@ app.get('/api/user/:id/logs', async (req, res) => {
     }
 });
 
+// Get all scan logs with person details
+app.get('/api/logs', async (req, res) => {
+    try {
+        const [rows] = await promisePool.query(`
+            SELECT
+                l.log_id,
+                l.date_logged,
+                l.status,
+                p.full_name,
+                p.unique_id,
+                r.role_name,
+                gl.lab_name
+            FROM Logging l
+            LEFT JOIN Person p ON l.user_id = p.user_id
+            LEFT JOIN Role r ON p.role_id = r.role_id
+            LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
+            ORDER BY l.date_logged DESC
+            LIMIT 500
+        `);
+
+        res.status(200).json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Error fetching logs:', error);
+        res.status(500).json({ success: false, message: 'Error fetching logs' });
+    }
+});
+
 // Get user statistics
 app.get('/api/user/:id/stats', async (req, res) => {
     const { id } = req.params;
@@ -430,6 +664,7 @@ app.post('/api/user/login', async (req, res) => {
                 p.full_name,
                 p.username,
                 p.email,
+                p.password,
                 p.unique_id,
                 p.created_at,
                 r.role_name,
@@ -440,20 +675,27 @@ app.post('/api/user/login', async (req, res) => {
             LEFT JOIN Role r ON p.role_id = r.role_id
             LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
             LEFT JOIN ID i ON p.unique_id = i.unique_id
-            WHERE p.username = ? AND p.password = ?
-        `, [username, password]);
+            WHERE p.username = ?
+        `, [username]);
 
+        let loginSuccess = false;
         if (rows.length > 0) {
+            loginSuccess = await comparePassword(password, rows[0].password);
+        }
+
+        if (loginSuccess) {
             const user = rows[0];
-            // Determine if user is admin (you can have a separate admin check or use role_id)
-            const isAdmin = user.role_name === 'Admin' || user.role_id === 1; // Adjust as needed
+            // Remove password from response
+            const { password: _, ...safeUser } = user;
+
+            const isAdmin = user.role_name === 'Admin' || user.role_id === 1;
 
             res.status(200).json({
                 success: true,
                 message: 'Login successful',
                 token: 'mock-jwt-token-' + Date.now(),
                 role: isAdmin ? 'admin' : 'user',
-                user: user
+                user: safeUser
             });
         } else {
             res.status(401).json({
@@ -508,102 +750,6 @@ app.get('/api/persons', async (req, res) => {
     }
 });
 
-// Add a new log entry (RFID Tap)
-app.post('/api/logs', async (req, res) => {
-
-    const { user_id } = req.body;
-
-    // Business Hours
-    const OPEN_HOUR = 9;   // 9 AM
-    const CLOSE_HOUR = 17; // 5 PM
-
-    try {
-
-        // Check if user exists
-        const [users] = await promisePool.query(
-            'SELECT * FROM Person WHERE user_id = ?',
-            [user_id]
-        );
-
-        if (users.length === 0) {
-
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        // Current time
-        const now = new Date();
-        const currentHour = now.getHours();
-
-        // Outside business hours
-        if (currentHour < OPEN_HOUR || currentHour >= CLOSE_HOUR) {
-
-            await promisePool.query(
-                'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
-                [user_id, 'DENIED_AFTER_HOURS']
-            );
-
-            return res.status(403).json({
-                success: false,
-                message: 'Access denied: Outside business hours',
-                status: 'DENIED_AFTER_HOURS'
-            });
-        }
-
-        // Get latest log
-        const [latestLogs] = await promisePool.query(`
-            SELECT *
-            FROM Logging
-            WHERE user_id = ?
-            ORDER BY date_logged DESC
-            LIMIT 1
-        `, [user_id]);
-
-        let newStatus = 'LOGIN';
-
-        if (latestLogs.length > 0) {
-
-            const lastLog = latestLogs[0];
-
-            const lastTime = new Date(lastLog.date_logged);
-
-            // REMOVE DUPLICATE TAP DETECTION
-            // (deleted completely)
-
-            // Toggle LOGIN / LOGOUT
-            if (lastLog.status === 'LOGIN') {
-                newStatus = 'LOGOUT';
-            } else {
-                newStatus = 'LOGIN';
-            }
-        }
-
-        // Insert new log
-        const [result] = await promisePool.query(
-            'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
-            [user_id, newStatus]
-        );
-
-        res.status(201).json({
-            success: true,
-            message: `${newStatus} successful`,
-            status: newStatus,
-            logId: result.insertId,
-            timestamp: now
-        });
-
-    } catch (error) {
-
-        console.error('Error creating log:', error);
-
-        res.status(500).json({
-            success: false,
-            message: 'Error creating log entry'
-        });
-    }
-});
 // Get dashboard statistics
 app.get('/api/stats', async (req, res) => {
     try {
@@ -654,113 +800,67 @@ app.get('/api/stats', async (req, res) => {
 
 
 // Add a new log entry (RFID Tap)
+// Add a new log entry (RFID Tap)
 app.post('/api/logs', async (req, res) => {
-    const { user_id } = req.body;
+    const { unique_id } = req.body;
 
-    // Business Hours
-    const OPEN_HOUR = 9;   // 9 AM
-    const CLOSE_HOUR = 17; // 5 PM
+    if (!unique_id) {
+        return res.status(400).json({ success: false, message: 'No Card ID provided.' });
+    }
 
     try {
-
-        // Check if user exists
-        const [users] = await promisePool.query(
-            'SELECT * FROM Person WHERE user_id = ?',
-            [user_id]
+        // STEP 1: Find the user linked to this RFID card
+        const [userResults] = await promisePool.query(
+            'SELECT user_id FROM Person WHERE unique_id = ?',
+            [unique_id]
         );
 
-        if (users.length === 0) {
+        if (userResults.length === 0) {
             return res.status(404).json({
                 success: false,
-                message: 'User not found'
+                message: 'Unregistered Card! Please register this card first.'
             });
         }
 
-        // Current server time
-        const now = new Date();
+        const internalUserId = userResults[0].user_id;
 
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-
-        // Outside business hours
-        if (currentHour < OPEN_HOUR || currentHour >= CLOSE_HOUR) {
-
-            await promisePool.query(
-                'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
-                [user_id, 'DENIED_AFTER_HOURS']
-            );
-
-            return res.status(403).json({
-                success: false,
-                message: 'Access denied: Outside business hours'
-            });
-        }
-
-        // Get latest log of the user
-        const [latestLogs] = await promisePool.query(`
-            SELECT *
-            FROM Logging
-            WHERE user_id = ?
-            ORDER BY date_logged DESC
-            LIMIT 1
-        `, [user_id]);
-
-        let newStatus = 'LOGIN';
-
-        if (latestLogs.length > 0) {
-
-            const lastLog = latestLogs[0];
-
-            const lastTime = new Date(lastLog.date_logged);
-
-            // Prevent duplicate taps within 10 seconds
-            const diffSeconds = (now - lastTime) / 1000;
-
-            if (diffSeconds < 10) {
-
-                await promisePool.query(
-                    'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
-                    [user_id, 'DENIED_DUPLICATE']
-                );
-
-                return res.status(429).json({
-                    success: false,
-                    message: 'Duplicate tap detected'
-                });
-            }
-
-            // Toggle LOGIN/LOGOUT
-            if (lastLog.status === 'LOGIN') {
-                newStatus = 'LOGOUT';
-            } else {
-                newStatus = 'LOGIN';
-            }
-        }
-
-        // Save log
-        const [result] = await promisePool.query(
-            'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
-            [user_id, newStatus]
+        // STEP 2: Check the last log to toggle LOGIN <-> LOGOUT
+        const [lastLog] = await promisePool.query(
+            'SELECT status FROM Logging WHERE user_id = ? ORDER BY date_logged DESC LIMIT 1',
+            [internalUserId]
         );
 
-        res.status(201).json({
+        const lastStatus = lastLog.length > 0 ? lastLog[0].status : null;
+        const newStatus = lastStatus === 'LOGIN' ? 'LOGOUT' : 'LOGIN';
+
+        // STEP 3: Insert the new log
+        await promisePool.query(
+            'INSERT INTO Logging (user_id, status) VALUES (?, ?)',
+            [internalUserId, newStatus]
+        );
+
+        // STEP 4: Fetch full user info for the response
+        const [personRows] = await promisePool.query(`
+            SELECT p.full_name, p.email, r.role_name, gl.lab_name, i.dlsu_idnumber
+            FROM Person p
+            LEFT JOIN Role r ON p.role_id = r.role_id
+            LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
+            LEFT JOIN ID i ON p.unique_id = i.unique_id
+            WHERE p.user_id = ?
+        `, [internalUserId]);
+
+        res.json({
             success: true,
-            message: `${newStatus} successful`,
+            message: 'Scan logged successfully!',
             status: newStatus,
-            logId: result.insertId,
-            timestamp: now
+            user: personRows[0] || null
         });
 
     } catch (error) {
-        console.error('Error creating log:', error);
-
-        res.status(500).json({
-            success: false,
-            message: 'Error creating log entry'
-        });
+        console.error('Database error during scan:', error);
+        res.status(500).json({ success: false, message: 'Failed to log attendance.' });
     }
 });
-
 // Add a new person (user)
 app.post('/api/persons', async (req, res) => {
     const { full_name, username, email, password, lab_id, role_id, dlsu_idnumber, unique_id } = req.body;
@@ -1012,6 +1112,186 @@ app.get('/api/export/logs', async (req, res) => {
             success: false,
             message: 'Error exporting logs'
         });
+    }
+});
+
+// ==========================================
+// CALENDAR CONFIGURATION ROUTES
+// ==========================================
+
+// Get all calendar settings (Useful for rendering an admin calendar UI)
+app.get('/api/calendar', async (req, res) => {
+    try {
+        const [rows] = await promisePool.query('SELECT * FROM Calendar ORDER BY calendar_date ASC');
+        res.status(200).json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Error fetching calendar settings:', error);
+        res.status(500).json({ success: false, message: 'Internal server error fetching calendar' });
+    }
+});
+
+// SET (Create) a specific calendar configuration for a date
+app.post('/api/calendar', async (req, res) => {
+    const {
+        calendar_date,
+        day_name,
+        is_academic_day,
+        is_holiday,
+        holiday_description,
+        custom_open_time,
+        custom_close_time
+    } = req.body;
+
+    if (!calendar_date || !day_name) {
+        return res.status(400).json({ success: false, message: 'calendar_date and day_name are required fields.' });
+    }
+
+    try {
+        // Prevent duplicate setups for the same date row
+        const [existing] = await promisePool.query('SELECT calendar_date FROM Calendar WHERE calendar_date = ?', [calendar_date]);
+        if (existing.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'A record for this date already exists. Use PUT /api/calendar to modify it.'
+            });
+        }
+
+        await promisePool.query(`
+            INSERT INTO Calendar 
+            (calendar_date, day_name, is_academic_day, is_holiday, holiday_description, custom_open_time, custom_close_time) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+            calendar_date,
+            day_name,
+            is_academic_day !== undefined ? is_academic_day : true,
+            is_holiday !== undefined ? is_holiday : false,
+            holiday_description || null,
+            custom_open_time || null,
+            custom_close_time || null
+        ]);
+
+        res.status(201).json({ success: true, message: `Calendar settings applied for ${calendar_date}` });
+    } catch (error) {
+        console.error('Error adding calendar configurations:', error);
+        res.status(500).json({ success: false, message: 'Internal server error setting calendar configs' });
+    }
+});
+
+// UPDATE calendar metrics for an existing target date
+app.put('/api/calendar/:date', async (req, res) => {
+    const { date } = req.params; // Expects format YYYY-MM-DD
+    const {
+        day_name,
+        is_academic_day,
+        is_holiday,
+        holiday_description,
+        custom_open_time,
+        custom_close_time
+    } = req.body;
+
+    try {
+        const [existing] = await promisePool.query('SELECT calendar_date FROM Calendar WHERE calendar_date = ?', [date]);
+        if (existing.length === 0) {
+            return res.status(404).json({ success: false, message: `No calendar record found for date: ${date}` });
+        }
+
+        // COALESCE updates provided values while retaining old parameters for omitted fields
+        await promisePool.query(`
+            UPDATE Calendar 
+            SET 
+                day_name = COALESCE(?, day_name),
+                is_academic_day = COALESCE(?, is_academic_day),
+                is_holiday = COALESCE(?, is_holiday),
+                holiday_description = ?,
+                custom_open_time = ?,
+                custom_close_time = ?
+            WHERE calendar_date = ?
+        `, [
+            day_name || null,
+            is_academic_day !== undefined ? is_academic_day : null,
+            is_holiday !== undefined ? is_holiday : null,
+            holiday_description || null,
+            custom_open_time || null,
+            custom_close_time || null,
+            date
+        ]);
+
+        res.status(200).json({ success: true, message: `Calendar configs updated successfully for ${date}` });
+    } catch (error) {
+        console.error('Error updating calendar configuration:', error);
+        res.status(500).json({ success: false, message: 'Internal server error updating configuration' });
+    }
+
+    async function fetchLogs() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/logs`);
+            const data = await response.json();
+            if (data.success) { logsData = data.data; return logsData; }
+            throw new Error(data.message);
+        } catch (error) {
+            console.error('Error fetching logs:', error);
+            logsData = [];
+            return logsData;
+        }
+    }
+
+    async function renderLogsTable(filter = '') {
+        const tbody = document.getElementById('logsTableBody');
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Loading scan logs...</td></tr>';
+
+        if (logsData.length === 0) await fetchLogs();
+
+        let rows = logsData;
+        if (filter) {
+            const f = filter.toLowerCase();
+            rows = logsData.filter(l =>
+                (l.full_name || '').toLowerCase().includes(f) ||
+                (l.unique_id || '').toLowerCase().includes(f) ||
+                (l.status || '').toLowerCase().includes(f)
+            );
+        }
+
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No scan logs found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rows.map(log => {
+            const isLogin = log.status === 'LOGIN';
+            const statusColor = isLogin ? '#34d399' : '#f87171';
+            const date = log.date_logged ? new Date(log.date_logged).toLocaleString() : 'N/A';
+            return `
+            <tr>
+                <td>${escapeHtml(String(log.log_id || ''))}</td>
+                <td><strong>${escapeHtml(log.full_name || 'Unknown')}</strong></td>
+                <td><span class="badge-card">${escapeHtml(String(log.unique_id || 'N/A'))}</span></td>
+                <td>${escapeHtml(date)}</td>
+                <td><span style="color:${statusColor}; font-weight:600;">${escapeHtml(log.status || 'N/A')}</span></td>
+            </tr>
+        `;
+        }).join('');
+    }
+
+    function exportLogsCSV() {
+        if (logsData.length === 0) { alert('No log data to export.'); return; }
+        const headers = ['Log ID', 'Full Name', 'Card UID', 'Timestamp', 'Status'];
+        const csvRows = [headers.join(',')];
+        logsData.forEach(l => {
+            csvRows.push([
+                l.log_id,
+                `"${(l.full_name || '').replace(/"/g, '""')}"`,
+                l.unique_id || '',
+                l.date_logged ? new Date(l.date_logged).toLocaleString() : '',
+                l.status || ''
+            ].join(','));
+        });
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `scan_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
     }
 });
 

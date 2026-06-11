@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GKAttendance - Admin Login</title>
+    <title>GKAttendance - User Login</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="login-container">
         <div class="login-card">
@@ -15,44 +17,37 @@
                     <span>GK</span>
                 </div>
                 <h1>GKAttendance</h1>
-                <p>Admin Portal</p>
+                <p>User Portal</p>
             </div>
-            
-            <form id="login-form">
+
+            <form id="user-login-form">
                 <div class="input-group">
                     <label for="username">Username</label>
                     <input type="text" id="username" name="username" placeholder="Enter your username" required>
                 </div>
-                
+
                 <div class="input-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" placeholder="Enter your password" required>
                 </div>
-                
                 <div class="actions">
-                    <label class="remember-me">
-                        <input type="checkbox"> Remember me
-                    </label>
                     <a href="/forgot-password" class="forgot-password">Forgot Password?</a>
                 </div>
-                
+
                 <button type="submit" class="login-btn">
+
                     <span>Sign In</span>
                     <div class="spinner" id="btn-spinner"></div>
                 </button>
             </form>
-            
+
             <div class="auth-footer">
-                Don't have an account? <a href="/signup">Sign Up</a>
+                Admin? <a href="/login">Admin Login</a>
+                <div id="message" class="message hidden"></div>
             </div>
-            <div class="auth-footer" style="margin-top: 8px;">
-                Not an admin? <a href="/userlogin">Login as User</a>
-            </div>
-            
-            <div id="message" class="message hidden"></div>
         </div>
-    </div>
-    
-    <script src="script.js"></script>
+
+        <script src="userLogin.js"></script>
 </body>
+
 </html>
