@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT;
 
 module.exports = app;
-
+const BASE = process.env.API_BASE_URL;
 // Keep your local listening block, but wrap it so it doesn't break Vercel
 if (process.env.NODE_ENV !== 'production') {
     const PORT = process.env.PORT || 3000;
@@ -47,6 +47,11 @@ const promisePool = pool.promise();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+app.use(cors({
+    origin: 'https://gkattendance.vercel.app',
+    credentials: true
+}));
 
 app.use(express.static(path.join(__dirname, '../frontend')))
 // Routes
