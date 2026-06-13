@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 form.reset();
 
                 setTimeout(() => {
-                    window.location.href = '/login';
+                    window.location.href = '/index';
                 }, 2000);
             } else {
                 showMessage(
