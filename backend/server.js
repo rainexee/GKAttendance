@@ -86,11 +86,11 @@ app.get('/api/logs', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.redirect('/login');
+    res.redirect('/index');
 });
 
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/login.html'));
+app.get('/index', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 app.get('/userlogin', (req, res) => {
