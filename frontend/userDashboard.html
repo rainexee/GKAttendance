@@ -741,7 +741,7 @@
         async function checkAuth() {
             const token = localStorage.getItem('userToken');
             if (!token) {
-                window.location.href = '/login';
+                window.location.href = '/index';
                 return false;
             }
 
@@ -1020,7 +1020,7 @@
             localStorage.removeItem('currentUser');
             localStorage.removeItem('userRole');
 
-            window.location.href = '/login';
+            window.location.href = '/index';
         }
 
         // Initialize dashboard
