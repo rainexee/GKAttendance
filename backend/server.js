@@ -12,14 +12,6 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const app = express();
 const PORT = process.env.PORT;
 
-module.exports = app;
-
-// Keep your local listening block, but wrap it so it doesn't break Vercel
-if (process.env.NODE_ENV !== 'production') {
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => console.log(`Server running locally on port ${PORT}`));
-}
-
 // Database connection pool
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
