@@ -7,29 +7,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-
+        
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
-
+        
         const submitBtn = document.querySelector('.login-btn');
         const btnSpinner = document.getElementById('btn-spinner');
         const messageDiv = document.getElementById('message');
-
+        
         // Show loading state
         submitBtn.disabled = true;
         btnSpinner.style.display = 'inline-block';
         messageDiv.classList.add('hidden');
-
+        
         try {
             // First try admin login
-            let response = await fetch('/api/admin/index', {
+            let response = await fetch('/api/admin/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
-
+            
             let data = await response.json();
-
+            
             if (data.success) {
                 // Admin login successful
                 localStorage.setItem('adminToken', data.token);
@@ -37,32 +37,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 messageDiv.className = 'message success';
                 messageDiv.innerHTML = '<i class="fas fa-check-circle"></i> Admin login successful! Redirecting...';
                 messageDiv.classList.remove('hidden');
-
+                
                 setTimeout(() => {
                     window.location.href = '/dashboard';
                 }, 1000);
                 return;
             }
-
+            
             // If admin login fails, try user login
-            response = await fetch('/api/user/index', {
+            response = await fetch('/api/user/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
-
+            
             data = await response.json();
-
+            
             if (data.success) {
                 // User login successful
                 localStorage.setItem('userToken', data.token);
                 localStorage.setItem('userRole', data.role || 'user');
                 localStorage.setItem('currentUser', JSON.stringify(data.user));
-
+                
                 messageDiv.className = 'message success';
                 messageDiv.innerHTML = '<i class="fas fa-check-circle"></i> Login successful! Redirecting...';
                 messageDiv.classList.remove('hidden');
-
+                
                 setTimeout(() => {
                     window.location.href = '/userdashboard';
                 }, 1000);
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-
+    
 
     function showMessage(text, type) {
         messageEl.textContent = text;
