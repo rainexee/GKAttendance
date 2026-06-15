@@ -13,7 +13,7 @@ const app = express();
 
 // Middleware - Single organized CORS policy configuration
 app.use(cors({
-    origin: true,
+    origin: 'https://gkattendance.vercel.app',
     credentials: true
 }));
 app.use(express.json());
