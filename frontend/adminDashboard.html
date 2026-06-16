@@ -740,6 +740,10 @@
                     <i class="fas fa-calendar-alt"></i>
                     <span>Set Event Calendar</span>
                 </div>
+                <div class="nav-item" data-tab="roles">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Manage Roles</span>
+                </div>
             </div>
         </div>
 
@@ -895,6 +899,34 @@
                 </div>
             </div>
 
+            <div id="rolesPanel" class="section-panel">
+                <div class="data-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-user-shield"></i> Modify User Roles</h3>
+                        <p style="color: #94a3b8; font-size: 0.85rem; width: 100%; margin-top: 4px;">Convert standard users to administrators and manage their access rights.</p>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="rolesTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Full Name</th>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Current Role</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rolesTableBody">
+                                <tr class="empty-row">
+                                    <td colspan="6">Loading users...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -922,6 +954,7 @@
         let logsData = [];
         let calendar;
         let calendarEvents = [];
+        let activeEventId = null;
 
         // Global structural dynamic view systems setup
         document.addEventListener('DOMContentLoaded', () => {
@@ -930,7 +963,41 @@
             updateStats();
             renderUsersTable();
             initRfidScanner();
-            renderUsersTable();
+            renderRolesTable();
+            
+            document.getElementById('saveAssignedUsersBtn').addEventListener('click', async () => {
+                if (!activeEventId) {
+                    alert('Please select an event from the Setting Schedules tab first.');
+                    return;
+                }
+                const selectedIds = Array.from(document.querySelectorAll('.user-select-card input[type="checkbox"]:checked'))
+                                        .map(cb => parseInt(cb.dataset.userId));
+                
+                const btn = document.getElementById('saveAssignedUsersBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                btn.disabled = true;
+
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/events/${activeEventId}/assignments`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_ids: selectedIds })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert('Assignments saved successfully!');
+                    } else {
+                        alert('Failed to save assignments: ' + data.message);
+                    }
+                } catch (err) {
+                    console.error('Error saving assignments', err);
+                    alert('Network error saving assignments');
+                } finally {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            });
         });
 
         document.getElementById('logSearch').addEventListener('input', function () {
@@ -976,18 +1043,28 @@
             });
         }
 
-        function loadCalendarEvents() {
-            const saved = localStorage.getItem('admin_calendar_events');
-            calendarEvents = saved ? JSON.parse(saved) : [];
+        async function loadCalendarEvents() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/events`);
+                const data = await response.json();
+                if (data.success) {
+                    calendarEvents = data.data.map(e => ({
+                        id: e.event_id,
+                        title: e.title,
+                        start: e.start_time,
+                        end: e.end_time,
+                        location: e.location,
+                        description: e.description
+                    }));
+                }
+            } catch (err) {
+                console.error('Error fetching calendar events', err);
+                calendarEvents = [];
+            }
         }
 
-        function saveCalendarEventsStorage() {
-            localStorage.setItem('admin_calendar_events', JSON.stringify(calendarEvents));
-            renderSchedulesListView();
-        }
-
-        function initCalendar() {
-            loadCalendarEvents();
+        async function initCalendar() {
+            await loadCalendarEvents();
             calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
                 initialView: 'dayGridMonth',
                 headerToolbar: {
@@ -996,18 +1073,25 @@
                     right: 'dayGridMonth,timeGridWeek'
                 },
                 events: calendarEvents,
-                eventClick(info) {
+                eventClick: async function(info) {
                     if (confirm(`Delete event "${info.event.title}"?`)) {
-                        calendarEvents = calendarEvents.filter(e => e.id != info.event.id);
-                        saveCalendarEventsStorage();
-                        info.event.remove();
+                        try {
+                            const res = await fetch(`${API_BASE_URL}/api/events/${info.event.id}`, { method: 'DELETE' });
+                            if (res.ok) {
+                                calendarEvents = calendarEvents.filter(e => e.id != info.event.id);
+                                renderSchedulesListView();
+                                info.event.remove();
+                                if (activeEventId == info.event.id) activeEventId = null;
+                            }
+                        } catch (err) {
+                            console.error('Delete error', err);
+                        }
                     }
                 }
             });
             calendar.render();
         }
 
-        // Render visual tracking list showing Title, Location, and Time Duration
         function renderSchedulesListView() {
             const container = document.getElementById('liveScheduleContainer');
             if (!container) return;
@@ -1020,17 +1104,45 @@
             container.innerHTML = calendarEvents.map(ev => {
                 const timeFrom = formatDateTimeDisplay(ev.start);
                 const timeThen = ev.end ? formatDateTimeDisplay(ev.end) : 'Open-ended';
+                const isActive = activeEventId == ev.id;
                 return `
-                    <div class="schedule-item">
-                        <div class="schedule-item-title">${escapeHtml(ev.title)}</div>
-                        <div class="schedule-item-loc"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(ev.location || 'Not Defined')}</div>
-                        <div class="schedule-item-time">
+                    <div class="schedule-item" style="border-left: 4px solid ${isActive ? '#10b981' : '#3b82f6'};">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div>
+                                <div class="schedule-item-title">${escapeHtml(ev.title)}</div>
+                                <div class="schedule-item-loc"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(ev.location || 'Not Defined')}</div>
+                            </div>
+                            <button onclick="selectEventForAssignment(${ev.id})" style="background: ${isActive ? '#10b981' : 'rgba(59,130,246,0.2)'}; color: ${isActive ? 'white' : '#60a5fa'}; border: none; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 0.8rem;">
+                                ${isActive ? 'Selected' : 'Assign'}
+                            </button>
+                        </div>
+                        <div class="schedule-item-time" style="margin-top: 8px;">
                             <div><strong>From:</strong> ${timeFrom}</div>
                             <div><strong>Then:</strong> ${timeThen}</div>
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        async function selectEventForAssignment(eventId) {
+            activeEventId = eventId;
+            renderSchedulesListView(); 
+            
+            const usersTabBtn = document.querySelector('[data-inner-tab="usersTab"]');
+            if (usersTabBtn) usersTabBtn.click();
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/assignments`);
+                const data = await res.json();
+                const assignedUserIds = data.success ? data.data : [];
+                
+                document.querySelectorAll('.user-select-card input[type="checkbox"]').forEach(cb => {
+                    cb.checked = assignedUserIds.includes(parseInt(cb.dataset.userId));
+                });
+            } catch (err) {
+                console.error('Error fetching assignments', err);
+            }
         }
         // LOGOUT BUTTON HANDLER
         const logoutButton = document.getElementById('logoutBtn');
@@ -1085,7 +1197,7 @@
             document.getElementById('eventDescription').value = '';
         }
 
-        function saveEvent() {
+        async function saveEvent() {
             const title = document.getElementById('eventTitle').value;
             const location = document.getElementById('eventLocation').value;
             const start = document.getElementById('eventStart').value;
@@ -1097,19 +1209,34 @@
                 return;
             }
 
-            const event = {
-                id: Date.now().toString(),
-                title: title,
-                location: location,
-                start: start,
-                end: end,
-                description: description
-            };
-
-            calendarEvents.push(event);
-            saveCalendarEventsStorage();
-            if (calendar) calendar.addEvent(event);
-            closeModal();
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, location, description, start_time: start, end_time: end || null })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const e = data.data;
+                    const eventObj = {
+                        id: e.event_id,
+                        title: e.title,
+                        start: e.start_time,
+                        end: e.end_time,
+                        location: e.location,
+                        description: e.description
+                    };
+                    calendarEvents.push(eventObj);
+                    renderSchedulesListView();
+                    if (calendar) calendar.addEvent(eventObj);
+                    closeModal();
+                } else {
+                    alert('Error saving event: ' + data.message);
+                }
+            } catch (err) {
+                console.error('Error saving event', err);
+                alert('Network error saving event');
+            }
         }
 
         // Sync and database fetch fallback layers
@@ -1169,6 +1296,76 @@
             `).join('');
         }
 
+        async function renderRolesTable() {
+            const users = await fetchPersons();
+            const tbody = document.getElementById('rolesTableBody');
+            if (!tbody) return;
+
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No registered users located.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => {
+                const isAdmin = user.is_admin == 1;
+                return `
+                <tr>
+                    <td>${escapeHtml(String(user.user_id || ''))}</td>
+                    <td><strong>${escapeHtml(user.full_name || 'N/A')}</strong></td>
+                    <td>${escapeHtml(user.username || 'N/A')}</td>
+                    <td>${escapeHtml(user.email || 'N/A')}</td>
+                    <td><span class="badge-card">${isAdmin ? 'Admin' : escapeHtml(user.role_name || 'N/A')}</span></td>
+                    <td>
+                        ${isAdmin ? `
+                        <button onclick="demoteUserFromAdmin(${user.user_id})" class="btn-export" style="padding: 6px 12px; font-size: 0.8rem; background: #ef4444;">
+                            <i class="fas fa-arrow-down"></i> Demote Admin
+                        </button>
+                        ` : `
+                        <button onclick="promoteUserToAdmin(${user.user_id})" class="btn-export" style="padding: 6px 12px; font-size: 0.8rem; background: #8b5cf6;">
+                            <i class="fas fa-arrow-up"></i> Make Admin
+                        </button>
+                        `}
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        async function promoteUserToAdmin(userId) {
+            if (!confirm('Are you sure you want to promote this user to Admin? Their data and password will be transferred to the admin database.')) return;
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/admin/promote/${userId}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    renderRolesTable();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                console.error('Error promoting user:', err);
+                alert('Network error occurred.');
+            }
+        }
+
+        async function demoteUserFromAdmin(userId) {
+            if (!confirm('Are you sure you want to remove admin privileges from this user?')) return;
+            
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/admin/demote/${userId}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    renderRolesTable();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                console.error('Error demoting user:', err);
+                alert('Network error occurred.');
+            }
+        }
+
         // Helper escape utilities
         function escapeHtml(str) {
             if (!str) return '';
@@ -1213,15 +1410,22 @@
                     }
 
                     if (targetTab === 'calendar') {
-                        setTimeout(() => {
+                        setTimeout(async () => {
                             if (!calendar) {
-                                initCalendar();
+                                await initCalendar();
                             } else {
+                                await loadCalendarEvents();
+                                calendar.removeAllEvents();
+                                calendarEvents.forEach(ev => calendar.addEvent(ev));
                                 calendar.updateSize();
                             }
                             renderSchedulesListView();
                             renderUserSelectionMatrix();
                         }, 50);
+                    }
+
+                    if (targetTab === 'roles') {
+                        renderRolesTable();
                     }
                 });
             });

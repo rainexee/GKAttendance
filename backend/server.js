@@ -969,7 +969,9 @@ app.get('/api/persons/status', async (req, res) => {
                     WHERE l.user_id = p.user_id
                     ORDER BY l.date_logged DESC
                     LIMIT 1
-                ) AS current_status
+                ) AS current_status,
+
+                IF(a.admin_id IS NOT NULL, 1, 0) AS is_admin
 
             FROM Person p
 
@@ -981,6 +983,9 @@ app.get('/api/persons/status', async (req, res) => {
 
             LEFT JOIN ID i
                 ON p.unique_id = i.unique_id
+                
+            LEFT JOIN Admins a
+                ON p.username = a.username
 
             ORDER BY p.user_id DESC
         `);
@@ -1178,7 +1183,7 @@ app.post('/api/calendar', async (req, res) => {
 
 // UPDATE calendar metrics for an existing target date
 app.put('/api/calendar/:date', async (req, res) => {
-    const { date } = req.params; // Expects format YYYY-MM-DD
+    const { date } = req.params;
     const {
         day_name,
         is_academic_day,
@@ -1194,7 +1199,6 @@ app.put('/api/calendar/:date', async (req, res) => {
             return res.status(404).json({ success: false, message: `No calendar record found for date: ${date}` });
         }
 
-        // COALESCE updates provided values while retaining old parameters for omitted fields
         await promisePool.query(`
             UPDATE Calendar 
             SET 
@@ -1220,77 +1224,259 @@ app.put('/api/calendar/:date', async (req, res) => {
         console.error('Error updating calendar configuration:', error);
         res.status(500).json({ success: false, message: 'Internal server error updating configuration' });
     }
+});
 
-    async function fetchLogs() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/logs`);
-            const data = await response.json();
-            if (data.success) { logsData = data.data; return logsData; }
-            throw new Error(data.message);
-        } catch (error) {
-            console.error('Error fetching logs:', error);
-            logsData = [];
-            return logsData;
-        }
+// ==========================================
+// EVENTS API ROUTES
+// ==========================================
+
+// GET all events
+app.get('/api/events', async (req, res) => {
+    try {
+        const [rows] = await promisePool.query(
+            'SELECT * FROM Events ORDER BY start_time ASC'
+        );
+        res.status(200).json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Error fetching events:', error);
+        res.status(500).json({ success: false, message: 'Error fetching events' });
+    }
+});
+
+// POST create a new event
+app.post('/api/events', async (req, res) => {
+    const { title, location, description, start_time, end_time } = req.body;
+
+    if (!title || !start_time) {
+        return res.status(400).json({ success: false, message: 'Title and start_time are required.' });
     }
 
-    async function renderLogsTable(filter = '') {
-        const tbody = document.getElementById('logsTableBody');
-        if (!tbody) return;
+    try {
+        const [result] = await promisePool.query(
+            'INSERT INTO Events (title, location, description, start_time, end_time) VALUES (?, ?, ?, ?, ?)',
+            [title, location || null, description || null, start_time, end_time || null]
+        );
+        const [newEvent] = await promisePool.query('SELECT * FROM Events WHERE event_id = ?', [result.insertId]);
+        res.status(201).json({ success: true, message: 'Event created successfully', data: newEvent[0] });
+    } catch (error) {
+        console.error('Error creating event:', error);
+        res.status(500).json({ success: false, message: 'Error creating event' });
+    }
+});
 
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Loading scan logs...</td></tr>';
+// DELETE an event (cascades to EventAssignments)
+app.delete('/api/events/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await promisePool.query('DELETE FROM Events WHERE event_id = ?', [id]);
+        res.status(200).json({ success: true, message: 'Event deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting event:', error);
+        res.status(500).json({ success: false, message: 'Error deleting event' });
+    }
+});
 
-        if (logsData.length === 0) await fetchLogs();
+// GET users assigned to an event
+app.get('/api/events/:id/assignments', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [rows] = await promisePool.query(
+            'SELECT user_id FROM EventAssignments WHERE event_id = ?',
+            [id]
+        );
+        res.status(200).json({ success: true, data: rows.map(r => r.user_id) });
+    } catch (error) {
+        console.error('Error fetching assignments:', error);
+        res.status(500).json({ success: false, message: 'Error fetching assignments' });
+    }
+});
 
-        let rows = logsData;
-        if (filter) {
-            const f = filter.toLowerCase();
-            rows = logsData.filter(l =>
-                (l.full_name || '').toLowerCase().includes(f) ||
-                (l.unique_id || '').toLowerCase().includes(f) ||
-                (l.status || '').toLowerCase().includes(f)
+// POST assign users to an event (replaces existing assignments + sends email)
+app.post('/api/events/:id/assignments', async (req, res) => {
+    const { id } = req.params;
+    const { user_ids } = req.body; // array of user_ids
+
+    if (!Array.isArray(user_ids)) {
+        return res.status(400).json({ success: false, message: 'user_ids must be an array.' });
+    }
+
+    const connection = await promisePool.getConnection();
+    try {
+        // Fetch the event details
+        const [eventRows] = await connection.query('SELECT * FROM Events WHERE event_id = ?', [id]);
+        if (eventRows.length === 0) {
+            connection.release();
+            return res.status(404).json({ success: false, message: 'Event not found.' });
+        }
+        const event = eventRows[0];
+
+        await connection.beginTransaction();
+
+        // Replace all existing assignments for this event
+        await connection.query('DELETE FROM EventAssignments WHERE event_id = ?', [id]);
+
+        if (user_ids.length > 0) {
+            const insertValues = user_ids.map(uid => [parseInt(id), uid]);
+            await connection.query(
+                'INSERT INTO EventAssignments (event_id, user_id) VALUES ?',
+                [insertValues]
             );
         }
 
-        if (rows.length === 0) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No scan logs found.</td></tr>';
-            return;
+        await connection.commit();
+        connection.release();
+
+        // Send email notifications to all assigned users
+        if (user_ids.length > 0) {
+            const [personRows] = await promisePool.query(
+                'SELECT full_name, email FROM Person WHERE user_id IN (?) AND email IS NOT NULL AND email != ""',
+                [user_ids]
+            );
+
+            const startFormatted = new Date(event.start_time).toLocaleString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+            const endFormatted = event.end_time
+                ? new Date(event.end_time).toLocaleString('en-US', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                })
+                : 'Open-ended';
+
+            const emailPromises = personRows.map(person => {
+                const mailOptions = {
+                    from: `"GKAttendance" <${process.env.EMAIL_USER}>`,
+                    to: person.email,
+                    subject: `GKAttendance — You've been assigned to: ${event.title}`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
+                            <div style="text-align: center; margin-bottom: 24px;">
+                                <h2 style="color: #3b82f6; margin: 0;">GKAttendance</h2>
+                                <p style="color: #64748b; font-size: 14px; margin: 4px 0 0;">Event Assignment Notification</p>
+                            </div>
+                            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 24px;" />
+                            <p style="font-size: 16px; line-height: 1.5;">Hello <strong>${person.full_name}</strong>,</p>
+                            <p style="font-size: 16px; line-height: 1.5;">You have been assigned to the following event:</p>
+
+                            <div style="background-color: #f1f5f9; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                                <h3 style="margin: 0 0 12px 0; color: #0f172a; font-size: 1.2rem;">${event.title}</h3>
+                                ${event.location ? `<p style="margin: 6px 0; color: #475569;"><strong>📍 Location:</strong> ${event.location}</p>` : ''}
+                                <p style="margin: 6px 0; color: #475569;"><strong>🕐 Starts:</strong> ${startFormatted}</p>
+                                <p style="margin: 6px 0; color: #475569;"><strong>🕐 Ends:</strong> ${endFormatted}</p>
+                                ${event.description ? `<p style="margin: 12px 0 0 0; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 12px;"><strong>📋 Details:</strong> ${event.description}</p>` : ''}
+                            </div>
+
+                            <p style="font-size: 15px; color: #64748b; line-height: 1.5;">This event has been added to your schedule in the GKAttendance portal. You can view it under <strong>My Schedule</strong> when you log in.</p>
+                            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+                            <p style="font-size: 12px; color: #94a3b8; text-align: center;">This is an automated notification from GKAttendance. Please do not reply to this email.</p>
+                        </div>
+                    `
+                };
+                return transport.sendMail(mailOptions).catch(err => {
+                    console.error(`Failed to send email to ${person.email}:`, err.message);
+                });
+            });
+
+            await Promise.allSettled(emailPromises);
         }
 
-        tbody.innerHTML = rows.map(log => {
-            const isLogin = log.status === 'LOGIN';
-            const statusColor = isLogin ? '#34d399' : '#f87171';
-            const date = log.date_logged ? new Date(log.date_logged).toLocaleString() : 'N/A';
-            return `
-            <tr>
-                <td>${escapeHtml(String(log.log_id || ''))}</td>
-                <td><strong>${escapeHtml(log.full_name || 'Unknown')}</strong></td>
-                <td><span class="badge-card">${escapeHtml(String(log.unique_id || 'N/A'))}</span></td>
-                <td>${escapeHtml(date)}</td>
-                <td><span style="color:${statusColor}; font-weight:600;">${escapeHtml(log.status || 'N/A')}</span></td>
-            </tr>
-        `;
-        }).join('');
-    }
-
-    function exportLogsCSV() {
-        if (logsData.length === 0) { alert('No log data to export.'); return; }
-        const headers = ['Log ID', 'Full Name', 'Card UID', 'Timestamp', 'Status'];
-        const csvRows = [headers.join(',')];
-        logsData.forEach(l => {
-            csvRows.push([
-                l.log_id,
-                `"${(l.full_name || '').replace(/"/g, '""')}"`,
-                l.unique_id || '',
-                l.date_logged ? new Date(l.date_logged).toLocaleString() : '',
-                l.status || ''
-            ].join(','));
+        res.status(200).json({
+            success: true,
+            message: `Assignments saved. Emails sent to ${user_ids.length} user(s).`
         });
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `scan_logs_${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
+
+    } catch (error) {
+        await connection.rollback();
+        connection.release();
+        console.error('Error saving assignments:', error);
+        res.status(500).json({ success: false, message: 'Error saving assignments' });
+    }
+});
+
+// GET events assigned to a specific user (for user dashboard calendar)
+app.get('/api/user/:id/events', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [rows] = await promisePool.query(`
+            SELECT 
+                e.event_id,
+                e.title,
+                e.location,
+                e.description,
+                e.start_time,
+                e.end_time,
+                e.created_at
+            FROM Events e
+            INNER JOIN EventAssignments ea ON e.event_id = ea.event_id
+            WHERE ea.user_id = ?
+            ORDER BY e.start_time ASC
+        `, [id]);
+        res.status(200).json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Error fetching user events:', error);
+        res.status(500).json({ success: false, message: 'Error fetching user events' });
+    }
+});
+
+// Promote a user to Admin (copies user to Admins table)
+app.post('/api/admin/promote/:id', async (req, res) => {
+    const { id } = req.params;
+    
+    const connection = await promisePool.getConnection();
+    try {
+        const [userRows] = await connection.query('SELECT username, password, email FROM Person WHERE user_id = ?', [id]);
+        if (userRows.length === 0) {
+            connection.release();
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        
+        const user = userRows[0];
+        
+        if (!user.username || !user.password) {
+            connection.release();
+            return res.status(400).json({ success: false, message: 'User missing username or password, cannot be promoted' });
+        }
+        
+        const [adminRows] = await connection.query('SELECT admin_id FROM Admins WHERE username = ?', [user.username]);
+        if (adminRows.length > 0) {
+            connection.release();
+            return res.status(400).json({ success: false, message: 'User is already an admin' });
+        }
+        
+        await connection.query('INSERT INTO Admins (username, password, email) VALUES (?, ?, ?)', [user.username, user.password, user.email]);
+        
+        connection.release();
+        res.status(200).json({ success: true, message: 'User promoted to Admin successfully. Data and password transferred.' });
+    } catch (error) {
+        if (connection) connection.release();
+        console.error('Error promoting user:', error);
+        res.status(500).json({ success: false, message: 'Internal server error promoting user' });
+    }
+});
+
+// Demote a user from Admin
+app.post('/api/admin/demote/:id', async (req, res) => {
+    const { id } = req.params;
+    
+    const connection = await promisePool.getConnection();
+    try {
+        const [userRows] = await connection.query('SELECT username FROM Person WHERE user_id = ?', [id]);
+        if (userRows.length === 0) {
+            connection.release();
+            return res.status(404).json({ success: false, message: 'User not found in Person table' });
+        }
+        
+        const username = userRows[0].username;
+        
+        await connection.query('DELETE FROM Admins WHERE username = ?', [username]);
+        
+        connection.release();
+        res.status(200).json({ success: true, message: 'User demoted from Admin successfully.' });
+    } catch (error) {
+        if (connection) connection.release();
+        console.error('Error demoting user:', error);
+        res.status(500).json({ success: false, message: 'Internal server error demoting user' });
     }
 });
 
