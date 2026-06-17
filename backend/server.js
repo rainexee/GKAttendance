@@ -903,6 +903,7 @@ app.post('/api/persons', async (req, res) => {
             });
         }
 
+        // pull me
         // Begin Transaction
         await connection.beginTransaction();
 
@@ -1422,7 +1423,7 @@ app.get('/api/user/:id/events', async (req, res) => {
 // Promote a user to Admin (copies user to Admins table)
 app.post('/api/admin/promote/:id', async (req, res) => {
     const { id } = req.params;
-    
+
     const connection = await promisePool.getConnection();
     try {
         const [userRows] = await connection.query('SELECT username, password, email FROM Person WHERE user_id = ?', [id]);
@@ -1430,22 +1431,22 @@ app.post('/api/admin/promote/:id', async (req, res) => {
             connection.release();
             return res.status(404).json({ success: false, message: 'User not found' });
         }
-        
+
         const user = userRows[0];
-        
+
         if (!user.username || !user.password) {
             connection.release();
             return res.status(400).json({ success: false, message: 'User missing username or password, cannot be promoted' });
         }
-        
+
         const [adminRows] = await connection.query('SELECT admin_id FROM Admins WHERE username = ?', [user.username]);
         if (adminRows.length > 0) {
             connection.release();
             return res.status(400).json({ success: false, message: 'User is already an admin' });
         }
-        
+
         await connection.query('INSERT INTO Admins (username, password, email) VALUES (?, ?, ?)', [user.username, user.password, user.email]);
-        
+
         connection.release();
         res.status(200).json({ success: true, message: 'User promoted to Admin successfully. Data and password transferred.' });
     } catch (error) {
@@ -1458,7 +1459,7 @@ app.post('/api/admin/promote/:id', async (req, res) => {
 // Demote a user from Admin
 app.post('/api/admin/demote/:id', async (req, res) => {
     const { id } = req.params;
-    
+
     const connection = await promisePool.getConnection();
     try {
         const [userRows] = await connection.query('SELECT username FROM Person WHERE user_id = ?', [id]);
@@ -1466,11 +1467,11 @@ app.post('/api/admin/demote/:id', async (req, res) => {
             connection.release();
             return res.status(404).json({ success: false, message: 'User not found in Person table' });
         }
-        
+
         const username = userRows[0].username;
-        
+
         await connection.query('DELETE FROM Admins WHERE username = ?', [username]);
-        
+
         connection.release();
         res.status(200).json({ success: true, message: 'User demoted from Admin successfully.' });
     } catch (error) {
