@@ -801,7 +801,7 @@ app.get('/api/stats', async (req, res) => {
 // Add a new log entry (RFID Tap)
 // Add a new log entry (RFID Tap)
 app.post('/api/logs', async (req, res) => {
-    const { unique_id } = req.body;
+
 
 
     let { unique_id } = req.body;
