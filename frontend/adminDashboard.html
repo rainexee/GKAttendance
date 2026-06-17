@@ -903,7 +903,8 @@
                 <div class="data-panel">
                     <div class="panel-header">
                         <h3><i class="fas fa-user-shield"></i> Modify User Roles</h3>
-                        <p style="color: #94a3b8; font-size: 0.85rem; width: 100%; margin-top: 4px;">Convert standard users to administrators and manage their access rights.</p>
+                        <p style="color: #94a3b8; font-size: 0.85rem; width: 100%; margin-top: 4px;">Convert standard
+                            users to administrators and manage their access rights.</p>
                     </div>
                     <div class="table-wrapper">
                         <table id="rolesTable">
@@ -964,15 +965,15 @@
             renderUsersTable();
             initRfidScanner();
             renderRolesTable();
-            
+
             document.getElementById('saveAssignedUsersBtn').addEventListener('click', async () => {
                 if (!activeEventId) {
                     alert('Please select an event from the Setting Schedules tab first.');
                     return;
                 }
                 const selectedIds = Array.from(document.querySelectorAll('.user-select-card input[type="checkbox"]:checked'))
-                                        .map(cb => parseInt(cb.dataset.userId));
-                
+                    .map(cb => parseInt(cb.dataset.userId));
+
                 const btn = document.getElementById('saveAssignedUsersBtn');
                 const originalText = btn.innerHTML;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
@@ -1073,7 +1074,7 @@
                     right: 'dayGridMonth,timeGridWeek'
                 },
                 events: calendarEvents,
-                eventClick: async function(info) {
+                eventClick: async function (info) {
                     if (confirm(`Delete event "${info.event.title}"?`)) {
                         try {
                             const res = await fetch(`${API_BASE_URL}/api/events/${info.event.id}`, { method: 'DELETE' });
@@ -1127,16 +1128,16 @@
 
         async function selectEventForAssignment(eventId) {
             activeEventId = eventId;
-            renderSchedulesListView(); 
-            
+            renderSchedulesListView();
+
             const usersTabBtn = document.querySelector('[data-inner-tab="usersTab"]');
             if (usersTabBtn) usersTabBtn.click();
-            
+
             try {
                 const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/assignments`);
                 const data = await res.json();
                 const assignedUserIds = data.success ? data.data : [];
-                
+
                 document.querySelectorAll('.user-select-card input[type="checkbox"]').forEach(cb => {
                     cb.checked = assignedUserIds.includes(parseInt(cb.dataset.userId));
                 });
@@ -1332,7 +1333,7 @@
 
         async function promoteUserToAdmin(userId) {
             if (!confirm('Are you sure you want to promote this user to Admin? Their data and password will be transferred to the admin database.')) return;
-            
+
             try {
                 const res = await fetch(`${API_BASE_URL}/api/admin/promote/${userId}`, { method: 'POST' });
                 const data = await res.json();
@@ -1350,7 +1351,7 @@
 
         async function demoteUserFromAdmin(userId) {
             if (!confirm('Are you sure you want to remove admin privileges from this user?')) return;
-            
+
             try {
                 const res = await fetch(`${API_BASE_URL}/api/admin/demote/${userId}`, { method: 'POST' });
                 const data = await res.json();
@@ -1432,98 +1433,170 @@
         }
 
         function initRfidScanner() {
-            const rfidInput = document.getElementById('rfidInput');
             const scanStatus = document.getElementById('scanStatus');
             const userDetail = document.getElementById('userDetail');
 
-            if (!rfidInput) return;
+            let scanBuffer = '';
+            let scanTimeout = null;
 
-            // RFID readers send the card UID followed by Enter key
-            rfidInput.addEventListener('keydown', async function (e) {
-                if (e.key === 'Enter') {
-                    const uid = rfidInput.value.trim();
-                    rfidInput.value = '';
+            async function processScan(uid) {
 
-                    if (!uid) return;
+                // Remove tabs, spaces, CR, LF
+                uid = uid.replace(/\s+/g, '').trim();
 
-                    // Show scanning feedback
-                    scanStatus.className = 'scan-status';
-                    scanStatus.style.display = 'block';
-                    scanStatus.style.background = 'rgba(59,130,246,0.15)';
-                    scanStatus.style.color = '#60a5fa';
-                    scanStatus.style.border = '1px solid rgba(59,130,246,0.3)';
-                    scanStatus.textContent = `Processing card: ${uid}...`;
-                    userDetail.classList.remove('visible');
+                if (!uid) return;
 
-                    try {
-                        const res = await fetch(`${API_BASE_URL}/api/logs`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ unique_id: uid })
-                        });
-                        const data = await res.json();
+                console.log('Processed UID:', uid);
 
-                        if (data.success) {
-                            const isLogin = data.status === 'LOGIN';
-                            scanStatus.style.background = isLogin ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
-                            scanStatus.style.color = isLogin ? '#34d399' : '#f87171';
-                            scanStatus.style.border = isLogin
-                                ? '1px solid rgba(16,185,129,0.3)'
-                                : '1px solid rgba(239,68,68,0.3)';
-                            scanStatus.textContent = `✓ ${data.status} recorded for ${data.user.full_name}`;
+                scanStatus.className = 'scan-status';
+                scanStatus.style.display = 'block';
+                scanStatus.style.background = 'rgba(59,130,246,0.15)';
+                scanStatus.style.color = '#60a5fa';
+                scanStatus.style.border = '1px solid rgba(59,130,246,0.3)';
+                scanStatus.textContent = `Processing card: ${uid}...`;
 
-                            if (data.user) {
-                                const u = data.user;
-                                userDetail.innerHTML = `
-                            <h4><i class="fas fa-id-badge"></i> ${escapeHtml(u.full_name || 'Unknown')}</h4>
-                            <div class="detail-grid">
-                                <div class="detail-item">
-                                    <span class="detail-label">DLSU ID</span>
-                                    <span class="detail-value">${escapeHtml(String(u.dlsu_idnumber || 'N/A'))}</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Email</span>
-                                    <span class="detail-value">${escapeHtml(u.email || 'N/A')}</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Role</span>
-                                    <span class="detail-value">${escapeHtml(u.role_name || 'N/A')}</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Lab</span>
-                                    <span class="detail-value">${escapeHtml(u.lab_name || 'N/A')}</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Status Logged</span>
-                                    <span class="detail-value" style="color:${isLogin ? '#34d399' : '#f87171'}; font-weight:700;">${data.status}</span>
-                                </div>
-                            </div>`;
-                                userDetail.classList.add('visible');
-                            }
-                        } else {
-                            scanStatus.style.background = 'rgba(239,68,68,0.15)';
-                            scanStatus.style.color = '#f87171';
-                            scanStatus.style.border = '1px solid rgba(239,68,68,0.3)';
-                            scanStatus.textContent = `✗ ${data.message}`;
+                userDetail.classList.remove('visible');
+
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/logs`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            unique_id: uid
+                        })
+                    });
+
+                    const data = await res.json();
+
+                    if (data.success) {
+                        const isLogin = data.status === 'LOGIN';
+
+                        scanStatus.style.background = isLogin
+                            ? 'rgba(16,185,129,0.15)'
+                            : 'rgba(239,68,68,0.15)';
+
+                        scanStatus.style.color = isLogin
+                            ? '#34d399'
+                            : '#f87171';
+
+                        scanStatus.style.border = isLogin
+                            ? '1px solid rgba(16,185,129,0.3)'
+                            : '1px solid rgba(239,68,68,0.3)';
+
+                        scanStatus.textContent =
+                            `✓ ${data.status} recorded for ${data.user.full_name}`;
+
+                        if (data.user) {
+                            const u = data.user;
+
+                            userDetail.innerHTML = `
+                        <h4>
+                            <i class="fas fa-id-badge"></i>
+                            ${escapeHtml(u.full_name || 'Unknown')}
+                        </h4>
+
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">DLSU ID</span>
+                                <span class="detail-value">${escapeHtml(String(u.dlsu_idnumber || 'N/A'))}</span>
+                            </div>
+
+                            <div class="detail-item">
+                                <span class="detail-label">Email</span>
+                                <span class="detail-value">${escapeHtml(u.email || 'N/A')}</span>
+                            </div>
+
+                            <div class="detail-item">
+                                <span class="detail-label">Role</span>
+                                <span class="detail-value">${escapeHtml(u.role_name || 'N/A')}</span>
+                            </div>
+
+                            <div class="detail-item">
+                                <span class="detail-label">Lab</span>
+                                <span class="detail-value">${escapeHtml(u.lab_name || 'N/A')}</span>
+                            </div>
+
+                            <div class="detail-item">
+                                <span class="detail-label">Status Logged</span>
+                                <span class="detail-value"
+                                    style="color:${isLogin ? '#34d399' : '#f87171'};font-weight:700;">
+                                    ${data.status}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+
+                            userDetail.classList.add('visible');
                         }
-                    } catch (err) {
+
+                    } else {
                         scanStatus.style.background = 'rgba(239,68,68,0.15)';
                         scanStatus.style.color = '#f87171';
                         scanStatus.style.border = '1px solid rgba(239,68,68,0.3)';
-                        scanStatus.textContent = '✗ Network error — could not reach server.';
+                        scanStatus.textContent = `✗ ${data.message}`;
                     }
 
-                    // Re-focus for next scan
-                    rfidInput.focus();
+                } catch (err) {
+                    console.error(err);
 
-                    // Auto-clear status after 8 seconds
-                    setTimeout(() => {
-                        scanStatus.style.display = 'none';
-                    }, 8000);
+                    scanStatus.style.background = 'rgba(239,68,68,0.15)';
+                    scanStatus.style.color = '#f87171';
+                    scanStatus.style.border = '1px solid rgba(239,68,68,0.3)';
+                    scanStatus.textContent =
+                        '✗ Network error — could not reach server.';
+                }
+
+                setTimeout(() => {
+                    scanStatus.style.display = 'none';
+                }, 8000);
+            }
+
+            document.addEventListener('keydown', function (e) {
+
+                const scanPanel = document.getElementById('scanPanel');
+
+                if (!scanPanel.classList.contains('active-section')) {
+                    return;
+                }
+
+                if (e.key === 'Enter') {
+
+                    if (!scanBuffer) return;
+
+                    const uid = scanBuffer.replace(/\s+/g, '');
+
+                    scanBuffer = '';
+
+                    processScan(uid);
+                    return;
+                }
+
+                if (e.key.length === 1 || e.key === 'Tab') {
+
+                    if (e.key !== 'Tab') {
+                        scanBuffer += e.key;
+                    }
+
+                    clearTimeout(scanTimeout);
+
+                    scanTimeout = setTimeout(() => {
+
+                        if (!scanBuffer) return;
+
+                        const uid = scanBuffer.replace(/\s+/g, '');
+
+                        scanBuffer = '';
+
+                        processScan(uid);
+
+                    }, 300);
                 }
             });
-        }
 
+            console.log('RFID / Barcode Scanner Ready');
+        }
         async function fetchLogs() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/logs`);

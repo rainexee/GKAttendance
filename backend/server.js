@@ -803,6 +803,14 @@ app.get('/api/stats', async (req, res) => {
 app.post('/api/logs', async (req, res) => {
     const { unique_id } = req.body;
 
+
+    let { unique_id } = req.body;
+
+    // sanitize scanner input (VERY IMPORTANT)
+    if (unique_id) {
+        unique_id = unique_id.toString().trim().replace(/\s+/g, '');
+    }
+
     if (!unique_id) {
         return res.status(400).json({ success: false, message: 'No Card ID provided.' });
     }
