@@ -1007,205 +1007,24 @@
 
         document.getElementById('exportLogsBtn').addEventListener('click', exportLogsCSV);
 
-
         function exportLogsCSV() {
-            if (!logsData || logsData.length === 0) {
-                alert('No log data to export.');
-                return;
-            }
-
-            const rows = [];
-
-            const generatedDate = new Date();
-
-            const totalRecords = logsData.length;
-            const uniquePeople = new Set(logsData.map(l => l.full_name)).size;
-            const totalLogins = logsData.filter(l => l.status === 'LOGIN').length;
-            const totalLogouts = logsData.filter(l => l.status === 'LOGOUT').length;
-
-            const dates = logsData
-                .map(l => new Date(l.date_logged))
-                .sort((a, b) => a - b);
-
-            const periodStart = dates[0]?.toISOString().split('T')[0] || '';
-            const periodEnd = dates[dates.length - 1]?.toISOString().split('T')[0] || '';
-
-            rows.push('GKAttendance - Scan Log Export');
-            rows.push(`Generated:,${generatedDate.toLocaleString()}`);
-            rows.push(`Period:,${periodStart},to,${periodEnd}`);
-            rows.push(`Total Records:,${totalRecords}`);
-            rows.push(`Unique People:,${uniquePeople},Total LOGINs:,${totalLogins},Total LOGOUTs:,${totalLogouts}`);
-            rows.push('');
-
-            const grouped = {};
-
-            logsData.forEach(log => {
-                const dateObj = new Date(log.date_logged);
-                const dateKey = dateObj.toISOString().split('T')[0];
-
-                if (!grouped[dateKey]) grouped[dateKey] = [];
-                grouped[dateKey].push(log);
-            });
-
-            const dailySummary = [];
-
-            Object.keys(grouped)
-                .sort()
-                .forEach(dateKey => {
-
-                    const dayLogs = grouped[dateKey];
-
-                    const prettyDate = new Date(dateKey).toLocaleDateString(
-                        'en-US',
-                        {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        }
-                    );
-
-                    const loginCount = dayLogs.filter(l => l.status === 'LOGIN').length;
-                    const logoutCount = dayLogs.filter(l => l.status === 'LOGOUT').length;
-                    const peopleCount = new Set(dayLogs.map(l => l.full_name)).size;
-
-                    rows.push('==============================');
-                    rows.push(`DATE: ${prettyDate}`);
-                    rows.push(
-                        `Records: ${dayLogs.length} | Unique People: ${peopleCount} | LOGINs: ${loginCount} | LOGOUTs: ${logoutCount}`
-                    );
-                    rows.push('==============================');
-
-                    rows.push(
-                        'Log ID,Full Name,Card UID,Time,Status'
-                    );
-
-                    dayLogs.forEach(log => {
-
-                        const time = new Date(log.date_logged)
-                            .toLocaleTimeString('en-US', {
-                                hour12: false
-                            });
-
-                        rows.push([
-                            log.log_id,
-                            `"${(log.full_name || '').replace(/"/g, '""')}"`,
-                            `"${log.unique_id || ''}"`,
-                            `"${time}"`,
-                            log.status || ''
-                        ].join(','));
-                    });
-
-                    rows.push('');
-
-                    dailySummary.push({
-                        date: dateKey,
-                        day: new Date(dateKey).toLocaleDateString(
-                            'en-US',
-                            { weekday: 'long' }
-                        ),
-                        scans: dayLogs.length,
-                        people: peopleCount,
-                        logins: loginCount,
-                        logouts: logoutCount
-                    });
-                });
-
-            rows.push('');
-            rows.push('==============================');
-            rows.push('DAILY SUMMARY');
-            rows.push('==============================');
-            rows.push('Date,Day,Total Scans,Unique People,LOGINs,LOGOUTs');
-
-            dailySummary.forEach(d => {
-                rows.push([
-                    d.date,
-                    d.day,
-                    d.scans,
-                    d.people,
-                    d.logins,
-                    d.logouts
+            if (logsData.length === 0) { alert('No log data to export.'); return; }
+            const headers = ['Log ID', 'Full Name', 'Card UID', 'Timestamp', 'Status'];
+            const csvRows = [headers.join(',')];
+            logsData.forEach(l => {
+                csvRows.push([
+                    l.log_id,
+                    `"${(l.full_name || '').replace(/"/g, '""')}"`,
+                    l.unique_id || '',
+                    l.date_logged ? new Date(l.date_logged).toLocaleString() : '',
+                    l.status || ''
                 ].join(','));
             });
-
-            rows.push('');
-            rows.push('==============================');
-            rows.push('COMBINED HOURS AND DAYS');
-            rows.push('==============================');
-            rows.push('Name,Days Present,Total Hours');
-
-            const attendance = {};
-
-            logsData.forEach(log => {
-                const name = log.full_name || 'Unknown';
-
-                if (!attendance[name]) {
-                    attendance[name] = {
-                        days: new Set(),
-                        sessions: []
-                    };
-                }
-
-                attendance[name].days.add(
-                    new Date(log.date_logged).toISOString().split('T')[0]
-                );
-
-                attendance[name].sessions.push(log);
-            });
-
-            Object.entries(attendance).forEach(([name, data]) => {
-
-                const sortedLogs = data.sessions.sort(
-                    (a, b) =>
-                        new Date(a.date_logged) -
-                        new Date(b.date_logged)
-                );
-
-                let totalHours = 0;
-                let loginTime = null;
-
-                sortedLogs.forEach(log => {
-
-                    if (log.status === 'LOGIN') {
-                        loginTime = new Date(log.date_logged);
-                    }
-
-                    if (
-                        log.status === 'LOGOUT' &&
-                        loginTime
-                    ) {
-                        totalHours +=
-                            (new Date(log.date_logged) - loginTime)
-                            / 3600000;
-
-                        loginTime = null;
-                    }
-                });
-
-                rows.push([
-                    `"${name.replace(/"/g, '""')}"`,
-                    data.days.size,
-                    totalHours.toFixed(2)
-                ].join(','));
-            });
-
-            const csvContent = rows.join('\r\n');
-
-            const blob = new Blob(
-                ['\uFEFF' + csvContent],
-                {
-                    type: 'text/csv;charset=utf-8;'
-                }
-            );
-
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download =
-                `scan_logs_${new Date().toISOString().slice(0, 10)}.csv`;
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `scan_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
         }
 
         function initInnerSubTabs() {

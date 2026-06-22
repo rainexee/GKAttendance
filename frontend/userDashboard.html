@@ -568,67 +568,6 @@
         .fc .fc-col-header-cell-cushion {
             color: #94a3b8;
         }
-
-        /* Calendar 2-column layout */
-        .calendar-layout {
-            display: grid;
-            grid-template-columns: 1fr 320px;
-            gap: 1.5rem;
-        }
-
-        @media (max-width: 1100px) {
-            .calendar-layout {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .schedule-list-box {
-            background: rgba(15, 23, 42, 0.4);
-            border-radius: 20px;
-            padding: 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            max-height: 650px;
-            overflow-y: auto;
-        }
-
-        .schedule-list-title {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            color: #94a3b8;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            padding-bottom: 8px;
-        }
-
-        .schedule-item {
-            background: rgba(30, 41, 59, 0.5);
-            padding: 12px;
-            border-radius: 14px;
-            margin-bottom: 10px;
-            border-left: 4px solid #3b82f6;
-            transition: background 0.2s;
-        }
-
-        .schedule-item:hover {
-            background: rgba(30, 41, 59, 0.8);
-        }
-
-        .schedule-item-title {
-            font-weight: 600;
-            color: #f1f5f9;
-            margin-bottom: 4px;
-        }
-
-        .schedule-item-loc {
-            font-size: 0.85rem;
-            color: #a855f7;
-            margin-bottom: 6px;
-        }
-
-        .schedule-item-time {
-            font-size: 0.8rem;
-            color: #94a3b8;
-        }
     </style>
 </head>
 
@@ -718,20 +657,11 @@
                 <div class="calendar-panel">
                     <div class="calendar-header">
                         <h3><i class="fas fa-calendar-alt"></i> My Schedule</h3>
-                        <button class="add-event-btn" id="refreshCalendarBtn">
-                            <i class="fas fa-sync-alt"></i> Refresh
+                        <button class="add-event-btn" id="addEventBtn">
+                            <i class="fas fa-plus"></i> Add Event
                         </button>
                     </div>
-                    <div class="calendar-layout">
-                        <div id="calendar"></div>
-                        <div class="schedule-list-box">
-                            <div class="schedule-list-title"><i class="fas fa-clipboard-list"></i> Upcoming Events</div>
-                            <div id="upcomingEventsContainer">
-                                <p style="color:#64748b; font-size:0.9rem; text-align:center; padding:1rem;">Loading
-                                    events...</p>
-                            </div>
-                        </div>
-                    </div>
+                    <div id="calendar"></div>
                 </div>
             </div>
 
@@ -782,14 +712,17 @@
         </div>
     </div>
 
-    <!-- Event Detail Modal -->
+    <!-- Add Event Modal -->
     <div id="eventModal" class="modal">
         <div class="modal-content">
-            <h3><i class="fas fa-calendar-check"></i> <span id="modalEventTitle">Event Details</span></h3>
-            <div id="modalEventBody" style="color:#cbd5e1; font-size:0.95rem; line-height:1.8;">
-            </div>
-            <div class="modal-buttons" style="margin-top:1.5rem;">
-                <button onclick="closeModal()">Close</button>
+            <h3><i class="fas fa-plus-circle"></i> Add Schedule Event</h3>
+            <input type="text" id="eventTitle" placeholder="Event Title" required>
+            <input type="datetime-local" id="eventStart" required>
+            <input type="datetime-local" id="eventEnd" required>
+            <textarea id="eventDescription" placeholder="Description (optional)" rows="3"></textarea>
+            <div class="modal-buttons">
+                <button onclick="closeModal()">Cancel</button>
+                <button onclick="saveEvent()">Save Event</button>
             </div>
         </div>
     </div>
@@ -933,81 +866,30 @@
             `).join('');
         }
 
-        // Calendar functions — DB-backed via /api/user/:id/events
-        async function fetchUserEvents() {
-            try {
-                const userId = currentUser?.user_id;
-                const response = await fetch(`${API_BASE_URL}/api/user/${userId}/events`);
-                const data = await response.json();
-                if (data.success) {
-                    calendarEvents = data.data;
-                    return calendarEvents;
-                }
-                return [];
-            } catch (error) {
-                console.error('Error fetching user events:', error);
-                return [];
+        // Calendar functions
+        function loadCalendarEvents() {
+            const saved = localStorage.getItem(`calendar_events_${currentUser?.user_id}`);
+            if (saved) {
+                calendarEvents = JSON.parse(saved);
+                calendarEvents.forEach(event => {
+                    event.start = event.start ? new Date(event.start) : null;
+                    event.end = event.end ? new Date(event.end) : null;
+                });
             }
+            return calendarEvents;
         }
 
-        function showEventModal(event) {
-            const start = formatDate(event.start_time || event.start);
-            const end = event.end_time || event.end
-                ? formatDate(event.end_time || event.end)
-                : 'Open-ended';
-            const location = event.location || 'Not specified';
-            const description = event.description || '';
-
-            document.getElementById('modalEventTitle').textContent = event.title;
-            document.getElementById('modalEventBody').innerHTML = `
-                <div style="background:rgba(59,130,246,0.1); border-left:4px solid #3b82f6; border-radius:8px; padding:16px; margin-bottom:12px;">
-                    ${location !== 'Not specified' ? `<p><i class="fas fa-map-marker-alt" style="color:#a855f7; margin-right:8px;"></i><strong>Location:</strong> ${escapeHtml(location)}</p>` : ''}
-                    <p style="margin-top:${location !== 'Not specified' ? '8px' : '0'}"><i class="fas fa-clock" style="color:#3b82f6; margin-right:8px;"></i><strong>Starts:</strong> ${escapeHtml(start)}</p>
-                    <p style="margin-top:8px"><i class="fas fa-clock" style="color:#64748b; margin-right:8px;"></i><strong>Ends:</strong> ${escapeHtml(end)}</p>
-                    ${description ? `<p style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);"><i class="fas fa-info-circle" style="color:#94a3b8; margin-right:8px;"></i><strong>Details:</strong> ${escapeHtml(description)}</p>` : ''}
-                </div>
-                <p style="color:#64748b; font-size:0.8rem; text-align:center;">This event was assigned to you by an admin.</p>
-            `;
-            document.getElementById('eventModal').classList.add('active');
+        function saveCalendarEvents() {
+            const eventsToSave = calendarEvents.map(event => ({
+                ...event,
+                start: event.start ? event.start.toISOString() : null,
+                end: event.end ? event.end.toISOString() : null
+            }));
+            localStorage.setItem(`calendar_events_${currentUser?.user_id}`, JSON.stringify(eventsToSave));
         }
 
-        function closeModal() {
-            document.getElementById('eventModal').classList.remove('active');
-        }
-
-        function renderUpcomingEvents() {
-            const container = document.getElementById('upcomingEventsContainer');
-            if (!container) return;
-
-            const now = new Date();
-            const upcoming = calendarEvents
-                .filter(e => new Date(e.start_time) >= now)
-                .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
-                .slice(0, 10);
-
-            if (upcoming.length === 0) {
-                container.innerHTML = `<p style="color:#64748b; font-size:0.9rem; text-align:center; padding:1rem;">No upcoming events assigned.</p>`;
-                return;
-            }
-
-            container.innerHTML = upcoming.map(ev => {
-                const start = formatDate(ev.start_time);
-                const end = ev.end_time ? formatDate(ev.end_time) : 'Open-ended';
-                return `
-                    <div class="schedule-item" onclick='showEventModal(${JSON.stringify(ev)})' style="cursor:pointer;">
-                        <div class="schedule-item-title">${escapeHtml(ev.title)}</div>
-                        ${ev.location ? `<div class="schedule-item-loc"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(ev.location)}</div>` : ''}
-                        <div class="schedule-item-time">
-                            <div><strong>From:</strong> ${start}</div>
-                            <div><strong>To:</strong> ${end}</div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        async function initCalendar() {
-            await fetchUserEvents();
+        function initCalendar() {
+            loadCalendarEvents();
 
             const calendarEl = document.getElementById('calendar');
             calendar = new FullCalendar.Calendar(calendarEl, {
@@ -1019,55 +901,68 @@
                 },
                 themeSystem: 'standard',
                 events: calendarEvents.map(event => ({
-                    id: event.event_id,
+                    id: event.id,
                     title: event.title,
-                    start: event.start_time,
-                    end: event.end_time || null,
-                    extendedProps: {
-                        location: event.location,
-                        description: event.description,
-                        start_time: event.start_time,
-                        end_time: event.end_time
-                    }
+                    start: event.start,
+                    end: event.end,
+                    description: event.description
                 })),
                 eventClick: function (info) {
-                    showEventModal({
-                        title: info.event.title,
-                        location: info.event.extendedProps.location,
-                        description: info.event.extendedProps.description,
-                        start_time: info.event.extendedProps.start_time,
-                        end_time: info.event.extendedProps.end_time
-                    });
+                    if (confirm(`Delete event "${info.event.title}"?`)) {
+                        calendarEvents = calendarEvents.filter(e => e.id !== parseInt(info.event.id));
+                        saveCalendarEvents();
+                        info.event.remove();
+                    }
                 },
-                eventColor: '#3b82f6',
                 height: 'auto',
-                editable: false,
-                selectable: false
+                editable: true,
+                selectable: true
             });
             calendar.render();
-            renderUpcomingEvents();
         }
 
-        async function refreshCalendar() {
-            await fetchUserEvents();
-            if (calendar) {
-                calendar.removeAllEvents();
-                calendarEvents.forEach(event => {
-                    calendar.addEvent({
-                        id: event.event_id,
-                        title: event.title,
-                        start: event.start_time,
-                        end: event.end_time || null,
-                        extendedProps: {
-                            location: event.location,
-                            description: event.description,
-                            start_time: event.start_time,
-                            end_time: event.end_time
-                        }
-                    });
-                });
+        function addEvent() {
+            document.getElementById('eventModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('eventModal').classList.remove('active');
+            document.getElementById('eventTitle').value = '';
+            document.getElementById('eventStart').value = '';
+            document.getElementById('eventEnd').value = '';
+            document.getElementById('eventDescription').value = '';
+        }
+
+        function saveEvent() {
+            const title = document.getElementById('eventTitle').value.trim();
+            const start = document.getElementById('eventStart').value;
+            const end = document.getElementById('eventEnd').value;
+            const description = document.getElementById('eventDescription').value;
+
+            if (!title || !start) {
+                alert('Please enter event title and start time');
+                return;
             }
-            renderUpcomingEvents();
+
+            const newEvent = {
+                id: Date.now(),
+                title: title,
+                start: new Date(start),
+                end: end ? new Date(end) : null,
+                description: description
+            };
+
+            calendarEvents.push(newEvent);
+            saveCalendarEvents();
+            calendar.addEvent({
+                id: newEvent.id,
+                title: newEvent.title,
+                start: newEvent.start,
+                end: newEvent.end,
+                description: newEvent.description
+            });
+
+            closeModal();
         }
 
         // Helper functions
@@ -1114,15 +1009,8 @@
                 renderRecentActivity();
             } else if (tabId === 'attendance') {
                 renderAttendanceHistory();
-            } else if (tabId === 'calendar') {
-                setTimeout(async () => {
-                    if (!calendar) {
-                        await initCalendar();
-                    } else {
-                        await refreshCalendar();
-                        calendar.updateSize();
-                    }
-                }, 50);
+            } else if (tabId === 'calendar' && calendar) {
+                calendar.render();
             }
         }
 
@@ -1158,8 +1046,8 @@
             // Logout button
             document.getElementById('logoutBtn').addEventListener('click', logout);
 
-            // Refresh calendar button
-            document.getElementById('refreshCalendarBtn').addEventListener('click', refreshCalendar);
+            // Add event button
+            document.getElementById('addEventBtn').addEventListener('click', addEvent);
 
             // Close modal on outside click
             document.getElementById('eventModal').addEventListener('click', (e) => {
