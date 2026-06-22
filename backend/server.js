@@ -26,12 +26,23 @@ const pool = mysql.createPool({
 const transport = nodemailer.createTransport({
 
     service: process.env.EMAIL_PROVIDER,
+    pool: true,
+    maxConnections: 10,
+    maxMessages: Infinity,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     }
 
-})
+});
+
+transport.verify((err) => {
+    if (err) {
+        console.error('SMTP Error:', err);
+    } else {
+        console.log('SMTP Ready');
+    }
+});
 // Convert pool to use promises
 const promisePool = pool.promise();
 
@@ -137,10 +148,25 @@ app.post('/api/user/forgotpassword', async (req, res) => {
 
         if (rows.length === 0) {
             // Generic success response to avoid user enumeration
-            return res.status(200).json({
+            res.status(200).json({
                 success: true,
                 message: 'If a matching account exists, a password reset code has been sent to the registered email.'
             });
+
+            setImmediate(async () => {
+                try {
+                    console.time(`user-email-${email}`);
+
+                    await transport.sendMail(mailOptions);
+
+                    console.timeEnd(`user-email-${email}`);
+                    console.log(`Reset email sent to ${email}`);
+                } catch (err) {
+                    console.error('Email send error:', err);
+                }
+            });
+
+            return;
         }
 
         const person = rows[0];
@@ -337,10 +363,25 @@ app.post('/api/admin/forgotpassword', async (req, res) => {
 
         if (rows.length === 0) {
             // Generic success response to avoid user enumeration
-            return res.status(200).json({
+            res.status(200).json({
                 success: true,
                 message: 'If a matching account exists, a password reset code has been sent to the registered email.'
             });
+
+            setImmediate(async () => {
+                try {
+                    console.time(`admin-email-${email}`);
+
+                    await transport.sendMail(mailOptions);
+
+                    console.timeEnd(`admin-email-${email}`);
+                    console.log(`Reset email sent to ${email}`);
+                } catch (err) {
+                    console.error('Email send error:', err);
+                }
+            });
+
+            return;
         }
 
         const admin = rows[0];
