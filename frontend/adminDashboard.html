@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.css">
 
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -815,8 +816,7 @@
                         <div class="search-box">
                             <input type="text" id="logSearch" placeholder="Search by name or card UID..."
                                 autocomplete="off">
-                            <button class="btn-export" id="exportLogsBtn"><i class="fas fa-file-csv"></i> Export Logs
-                                CSV</button>
+                            <button class="btn-export" id="exportLogsBtn"><i class="fas fa-file-excel"></i> Export Logs</button>
                         </div>
                     </div>
                     <div class="table-wrapper">
@@ -1007,24 +1007,322 @@
 
         document.getElementById('exportLogsBtn').addEventListener('click', exportLogsCSV);
 
-        function exportLogsCSV() {
-            if (logsData.length === 0) { alert('No log data to export.'); return; }
-            const headers = ['Log ID', 'Full Name', 'Card UID', 'Timestamp', 'Status'];
-            const csvRows = [headers.join(',')];
-            logsData.forEach(l => {
-                csvRows.push([
-                    l.log_id,
-                    `"${(l.full_name || '').replace(/"/g, '""')}"`,
-                    l.unique_id || '',
-                    l.date_logged ? new Date(l.date_logged).toLocaleString() : '',
-                    l.status || ''
-                ].join(','));
-            });
-            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `scan_logs_${new Date().toISOString().slice(0, 10)}.csv`;
-            a.click();
+        async function exportLogsCSV() {
+            const exportBtn = document.getElementById('exportLogsBtn');
+            const originalText = exportBtn.innerHTML;
+            
+            // Set loading state
+            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            exportBtn.disabled = true;
+
+            try {
+                // 1. Fetch ALL logs from backend export endpoint
+                const res = await fetch(`${API_BASE_URL}/api/export/logs`);
+                const resData = await res.json();
+                if (!resData.success) {
+                    throw new Error(resData.message || 'Server error fetching logs');
+                }
+                const logs = resData.data;
+                if (!logs || logs.length === 0) {
+                    alert('No log data to export.');
+                    return;
+                }
+
+                // Helper to format Date into YYYY-MM-DD local format
+                const getLocalDateString = (d) => {
+                    const dateObj = new Date(d);
+                    const yyyy = dateObj.getFullYear();
+                    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const dd = String(dateObj.getDate()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                };
+
+                // Helper to format datetime as YYYY-MM-DD HH:MM:SS local format
+                const formatLocalDateTime = (d) => {
+                    const dateObj = new Date(d);
+                    const yyyy = dateObj.getFullYear();
+                    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const dd = String(dateObj.getDate()).padStart(2, '0');
+                    const hh = String(dateObj.getHours()).padStart(2, '0');
+                    const min = String(dateObj.getMinutes()).padStart(2, '0');
+                    const ss = String(dateObj.getSeconds()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+                };
+
+                // Sort logs chronologically (oldest first) to accurately pair logins and logouts
+                const chronologicalLogs = [...logs].sort((a, b) => new Date(a.date_logged) - new Date(b.date_logged));
+
+                // 2. Group logs by user to trace their sessions
+                const logsByUser = {};
+                chronologicalLogs.forEach(log => {
+                    const key = log.user_id || log.unique_id || log.email;
+                    if (!key) return;
+                    if (!logsByUser[key]) {
+                        logsByUser[key] = [];
+                    }
+                    logsByUser[key].push(log);
+                });
+
+                // 3. Compute paired login/logout sessions, handling stuck logins
+                const sessions = [];
+                
+                Object.keys(logsByUser).forEach(userId => {
+                    const userEvents = logsByUser[userId];
+                    let idx = 0;
+                    
+                    while (idx < userEvents.length) {
+                        const current = userEvents[idx];
+                        if (current.status === 'LOGIN') {
+                            const loginTime = new Date(current.date_logged);
+                            const loginDateStr = getLocalDateString(loginTime);
+                            
+                            let paired = false;
+                            // Look ahead for a LOGOUT on the same day
+                            for (let j = idx + 1; j < userEvents.length; j++) {
+                                const nextEvt = userEvents[j];
+                                const nextTime = new Date(nextEvt.date_logged);
+                                const nextDateStr = getLocalDateString(nextTime);
+                                
+                                if (nextDateStr !== loginDateStr) {
+                                    // Crossed into a different day. Cannot pair with this login.
+                                    break;
+                                }
+                                
+                                if (nextEvt.status === 'LOGOUT') {
+                                    const durationHrs = (nextTime - loginTime) / (1000 * 60 * 60);
+                                    if (durationHrs >= 0) {
+                                        sessions.push({
+                                            userId: current.user_id,
+                                            fullName: current.full_name || 'Unknown',
+                                            email: current.email || 'N/A',
+                                            uniqueId: current.unique_id || 'N/A',
+                                            roleName: current.role_name || 'N/A',
+                                            labName: current.lab_name || 'N/A',
+                                            loginTime,
+                                            logoutTime: nextTime,
+                                            durationHrs
+                                        });
+                                    }
+                                    paired = true;
+                                    idx = j; // Advance pointer to this LOGOUT
+                                    break;
+                                }
+                            }
+                            
+                            if (!paired) {
+                                // User is stuck on LOGIN (no LOGOUT on the same day).
+                                // Create virtual LOGOUT at 5:00 PM (17:00:00) on the same day.
+                                const logoutTime = new Date(loginTime);
+                                
+                                // Determine if the login date is today and now is before 5 PM
+                                const now = new Date();
+                                const isToday = getLocalDateString(loginTime) === getLocalDateString(now);
+                                const fivePmToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 17, 0, 0, 0);
+                                
+                                if (isToday && now < fivePmToday) {
+                                    // If today and before 5:00 PM, use current time as end datetime
+                                    logoutTime.setTime(now.getTime());
+                                } else {
+                                    // Otherwise, set to 5:00 PM of that day
+                                    logoutTime.setHours(17, 0, 0, 0);
+                                }
+                                
+                                let durationHrs = (logoutTime - loginTime) / (1000 * 60 * 60);
+                                if (durationHrs < 0) {
+                                    durationHrs = 0; // Capped to 0 if login was after 5:00 PM
+                                    logoutTime.setTime(loginTime.getTime());
+                                }
+                                
+                                sessions.push({
+                                    userId: current.user_id,
+                                    fullName: current.full_name || 'Unknown',
+                                    email: current.email || 'N/A',
+                                    uniqueId: current.unique_id || 'N/A',
+                                    roleName: current.role_name || 'N/A',
+                                    labName: current.lab_name || 'N/A',
+                                    loginTime,
+                                    logoutTime,
+                                    durationHrs
+                                });
+                            }
+                        }
+                        idx++;
+                    }
+                });
+
+                // 4. Calculate overall summary statistics across the whole range
+                const overallStats = {};
+                sessions.forEach(s => {
+                    const key = s.userId || s.email || s.uniqueId;
+                    if (!overallStats[key]) {
+                        overallStats[key] = {
+                            fullName: s.fullName,
+                            email: s.email,
+                            roleName: s.roleName,
+                            labName: s.labName,
+                            totalHours: 0,
+                            attendedDays: new Set()
+                        };
+                    }
+                    overallStats[key].totalHours += s.durationHrs;
+                    overallStats[key].attendedDays.add(getLocalDateString(s.loginTime));
+                });
+
+                // 5. Group sessions and raw logs by date (local date string of the log timestamp)
+                const sessionsByDate = {};
+                const rawLogsByDate = {};
+
+                // Group sessions by their LOGIN date
+                sessions.forEach(s => {
+                    const dateStr = getLocalDateString(s.loginTime);
+                    if (!sessionsByDate[dateStr]) {
+                        sessionsByDate[dateStr] = [];
+                    }
+                    sessionsByDate[dateStr].push(s);
+                });
+
+                // Group raw logs by their event log date
+                chronologicalLogs.forEach(l => {
+                    const dateStr = getLocalDateString(l.date_logged);
+                    if (!rawLogsByDate[dateStr]) {
+                        rawLogsByDate[dateStr] = [];
+                    }
+                    rawLogsByDate[dateStr].push(l);
+                });
+
+                // 6. Create SheetJS Workbook
+                const wb = XLSX.utils.book_new();
+
+                // --- TAB 1: OVERVIEW SUMMARY ---
+                const overviewAoa = [
+                    ['GKAttendance - Overall Lab Attendance Summary'],
+                    ['Generated on: ' + new Date().toLocaleString()],
+                    ['Export Date Range: ' + (logs.length > 0 ? getLocalDateString(chronologicalLogs[0].date_logged) : 'N/A') + ' to ' + (logs.length > 0 ? getLocalDateString(chronologicalLogs[chronologicalLogs.length - 1].date_logged) : 'N/A')],
+                    [], // Empty separator
+                    ['Full Name', 'Email', 'Role', 'Lab Group', 'Total Days Attended', 'Total Hours in Lab']
+                ];
+
+                Object.values(overallStats)
+                    .sort((a, b) => b.totalHours - a.totalHours)
+                    .forEach(u => {
+                        overviewAoa.push([
+                            u.fullName,
+                            u.email,
+                            u.roleName,
+                            u.labName,
+                            u.attendedDays.size,
+                            parseFloat(u.totalHours.toFixed(2))
+                        ]);
+                    });
+
+                const wsOverview = XLSX.utils.aoa_to_sheet(overviewAoa);
+                wsOverview['!cols'] = [
+                    { wch: 25 }, // Full Name
+                    { wch: 25 }, // Email
+                    { wch: 15 }, // Role
+                    { wch: 25 }, // Lab Group
+                    { wch: 20 }, // Total Days Attended
+                    { wch: 20 }  // Total Hours in Lab
+                ];
+                XLSX.utils.book_append_sheet(wb, wsOverview, 'Overview Summary');
+
+                // --- TAB 2..N: DAILY DETAILED SHEETS ---
+                const uniqueDates = Array.from(new Set([
+                    ...Object.keys(sessionsByDate),
+                    ...Object.keys(rawLogsByDate)
+                ])).sort((a, b) => new Date(b) - new Date(a));
+
+                uniqueDates.forEach(dateStr => {
+                    const dailySessions = sessionsByDate[dateStr] || [];
+                    const dailyRawLogs = rawLogsByDate[dateStr] || [];
+
+                    // Calculate Daily Summary
+                    const dailySummary = {};
+                    dailySessions.forEach(s => {
+                        const key = s.userId || s.email || s.uniqueId;
+                        if (!dailySummary[key]) {
+                            dailySummary[key] = {
+                                fullName: s.fullName,
+                                email: s.email,
+                                roleName: s.roleName,
+                                labName: s.labName,
+                                totalHours: 0
+                            };
+                        }
+                        dailySummary[key].totalHours += s.durationHrs;
+                    });
+
+                    // Build Array of Arrays (AOA) for the side-by-side layout
+                    const dailyAoa = [
+                        [`GKAttendance - Lab Attendance & Card Scan Report for ${dateStr}`],
+                        [`Date: ${new Date(dateStr).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`],
+                        [], // Empty separator
+                        [
+                            'Daily Summary: Full Name', 'Email', 'Role', 'Lab Group', 'Hours Spent',
+                            '', // Column F (Empty Spacer)
+                            'Scan Logs: Log ID', 'Time Logged', 'Full Name', 'Status', 'Card UID'
+                        ]
+                    ];
+
+                    const summaryRows = Object.values(dailySummary)
+                        .sort((a, b) => b.totalHours - a.totalHours)
+                        .map(u => [
+                            u.fullName,
+                            u.email,
+                            u.roleName,
+                            u.labName,
+                            parseFloat(u.totalHours.toFixed(2))
+                        ]);
+
+                    const rawLogRows = dailyRawLogs.map(l => [
+                        l.log_id,
+                        formatLocalDateTime(l.date_logged),
+                        l.full_name || 'Unknown',
+                        l.status || 'N/A',
+                        l.unique_id || 'N/A'
+                    ]);
+
+                    const maxRows = Math.max(summaryRows.length, rawLogRows.length);
+                    for (let i = 0; i < maxRows; i++) {
+                        const sRow = summaryRows[i] || ['', '', '', '', ''];
+                        const rRow = rawLogRows[i] || ['', '', '', '', ''];
+                        dailyAoa.push([
+                            ...sRow,
+                            '', // Spacer column F
+                            ...rRow
+                        ]);
+                    }
+
+                    const wsDaily = XLSX.utils.aoa_to_sheet(dailyAoa);
+                    
+                    wsDaily['!cols'] = [
+                        { wch: 25 }, // A: Summary Name
+                        { wch: 25 }, // B: Summary Email
+                        { wch: 15 }, // C: Summary Role
+                        { wch: 25 }, // D: Summary Lab Group
+                        { wch: 15 }, // E: Summary Hours Spent
+                        { wch: 5 },  // F: Spacer
+                        { wch: 10 }, // G: Log ID
+                        { wch: 20 }, // H: Time Logged
+                        { wch: 25 }, // I: Log Name
+                        { wch: 12 }, // J: Log Status
+                        { wch: 15 }  // K: Card UID
+                    ];
+
+                    XLSX.utils.book_append_sheet(wb, wsDaily, dateStr);
+                });
+
+                // Write and trigger download
+                XLSX.writeFile(wb, `lab_attendance_report_${getLocalDateString(new Date())}.xlsx`);
+
+            } catch (err) {
+                console.error('Error generating Excel report:', err);
+                alert('Failed to generate Excel report: ' + err.message);
+            } finally {
+                // Restore export button state
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }
         }
 
         function initInnerSubTabs() {

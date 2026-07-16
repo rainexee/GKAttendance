@@ -1145,8 +1145,11 @@ app.get('/api/export/logs', async (req, res) => {
             SELECT 
                 l.log_id,
                 l.date_logged,
+                l.status,
+                l.user_id,
                 p.full_name,
                 p.email,
+                p.unique_id,
                 r.role_name,
                 gl.lab_name
             FROM Logging l
