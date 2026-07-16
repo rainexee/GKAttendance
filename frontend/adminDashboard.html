@@ -1024,6 +1024,9 @@
                 }
                 const logs = resData.data;
                 logsData = logs; // update cache with fresh data
+                console.log('[EXPORT DEBUG] Total logs fetched:', logs.length);
+                console.log('[EXPORT DEBUG] Sample log[0]:', JSON.stringify(logs[0]));
+                console.log('[EXPORT DEBUG] Sample log[1]:', JSON.stringify(logs[1]));
                 if (!logs || logs.length === 0) {
                     alert('No log data to export.');
                     return;
@@ -1063,6 +1066,7 @@
                     }
                     logsByUser[key].push(log);
                 });
+                console.log('[EXPORT DEBUG] Users in logsByUser:', Object.keys(logsByUser).length, Object.keys(logsByUser).slice(0,5));
 
                 // 3. Compute paired login/logout sessions, handling stuck logins
                 const sessions = [];
