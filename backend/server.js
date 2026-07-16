@@ -1152,10 +1152,10 @@ app.get('/api/export/logs', async (req, res) => {
                 p.unique_id,
                 r.role_name,
                 gl.lab_name
-            FROM Gkattendance.Logging l
-            LEFT JOIN Gkattendance.Person p ON l.user_id = p.user_id
-            LEFT JOIN Gkattendance.Role r ON p.role_id = r.role_id
-            LEFT JOIN Gkattendance.GKLab gl ON p.lab_id = gl.lab_id
+            FROM Logging l
+            LEFT JOIN Person p ON l.user_id = p.user_id
+            LEFT JOIN Role r ON p.role_id = r.role_id
+            LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
             ORDER BY l.date_logged DESC
         `);
 
