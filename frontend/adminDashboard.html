@@ -1016,18 +1016,14 @@
             exportBtn.disabled = true;
 
             try {
-                // 1. Use /api/logs which already returns status, unique_id, full_name correctly
-                // First use already-loaded logsData if available, otherwise re-fetch
-                let logs = logsData && logsData.length > 0 ? logsData : null;
-                if (!logs) {
-                    const res = await fetch(`${API_BASE_URL}/api/logs`);
-                    const resData = await res.json();
-                    if (!resData.success) {
-                        throw new Error(resData.message || 'Server error fetching logs');
-                    }
-                    logs = resData.data;
-                    logsData = logs; // cache it
+                // 1. Always fetch fresh from /api/logs for export (bypasses cache and LIMIT)
+                const res = await fetch(`${API_BASE_URL}/api/logs`);
+                const resData = await res.json();
+                if (!resData.success) {
+                    throw new Error(resData.message || 'Server error fetching logs');
                 }
+                const logs = resData.data;
+                logsData = logs; // update cache with fresh data
                 if (!logs || logs.length === 0) {
                     alert('No log data to export.');
                     return;
