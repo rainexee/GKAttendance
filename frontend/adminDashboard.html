@@ -1016,13 +1016,18 @@
             exportBtn.disabled = true;
 
             try {
-                // 1. Fetch ALL logs from backend export endpoint
-                const res = await fetch(`${API_BASE_URL}/api/export/logs`);
-                const resData = await res.json();
-                if (!resData.success) {
-                    throw new Error(resData.message || 'Server error fetching logs');
+                // 1. Use /api/logs which already returns status, unique_id, full_name correctly
+                // First use already-loaded logsData if available, otherwise re-fetch
+                let logs = logsData && logsData.length > 0 ? logsData : null;
+                if (!logs) {
+                    const res = await fetch(`${API_BASE_URL}/api/logs`);
+                    const resData = await res.json();
+                    if (!resData.success) {
+                        throw new Error(resData.message || 'Server error fetching logs');
+                    }
+                    logs = resData.data;
+                    logsData = logs; // cache it
                 }
-                const logs = resData.data;
                 if (!logs || logs.length === 0) {
                     alert('No log data to export.');
                     return;

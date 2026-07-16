@@ -65,6 +65,7 @@ app.get('/api/logs', async (req, res) => {
                 l.log_id,
                 l.date_logged,
                 l.status,
+                l.user_id,
                 p.full_name,
                 p.unique_id,
                 r.role_name,
@@ -74,7 +75,6 @@ app.get('/api/logs', async (req, res) => {
             LEFT JOIN Role r ON p.role_id = r.role_id
             LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
             ORDER BY l.date_logged DESC
-            LIMIT 500
         `);
         res.status(200).json({ success: true, data: rows });
     } catch (error) {
