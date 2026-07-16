@@ -1060,7 +1060,7 @@
                 // 2. Group logs by user to trace their sessions
                 const logsByUser = {};
                 chronologicalLogs.forEach(log => {
-                    const key = log.user_id || log.unique_id || log.email;
+                    const key = log.user_id || log.unique_id || log.full_name || log.email;
                     if (!key) return;
                     if (!logsByUser[key]) {
                         logsByUser[key] = [];
