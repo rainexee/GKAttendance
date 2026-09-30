@@ -1082,27 +1082,42 @@ app.put('/api/persons/:id', async (req, res) => {
 
 // Delete a person
 app.delete('/api/persons/:id', async (req, res) => {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({ success: false, message: 'Invalid user id' });
+    }
 
+    const conn = await promisePool.getConnection();
     try {
-        // First delete associated logs
-        await promisePool.query('DELETE FROM Logging WHERE user_id = ?', [id]);
-        // Then delete the person
-        await promisePool.query('DELETE FROM Person WHERE user_id = ?', [id]);
+        await conn.beginTransaction();
 
-        res.status(200).json({
-            success: true,
-            message: 'Person deleted successfully'
-        });
+        const [rows] = await conn.query('SELECT unique_id FROM Person WHERE user_id = ?', [id]);
+        if (rows.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        const uniqueId = rows[0].unique_id;
+
+        await conn.query('DELETE FROM Logging WHERE user_id = ?', [id]);
+        await conn.query('DELETE FROM Person WHERE user_id = ?', [id]);   // LabSchedule + EventAssignments cascade
+        if (uniqueId) {
+            // free the card/DLSU ID for re-registration, unless another person still uses it
+            await conn.query(
+                'DELETE FROM ID WHERE unique_id = ? AND unique_id NOT IN (SELECT unique_id FROM Person WHERE unique_id IS NOT NULL)',
+                [uniqueId]
+            );
+        }
+
+        await conn.commit();
+        res.status(200).json({ success: true, message: 'User removed successfully' });
     } catch (error) {
+        await conn.rollback();
         console.error('Error deleting person:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error deleting person'
-        });
+        res.status(500).json({ success: false, message: 'Error removing user' });
+    } finally {
+        conn.release();
     }
 });
-
 // Get all labs
 app.get('/api/labs', async (req, res) => {
     try {

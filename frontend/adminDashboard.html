@@ -797,6 +797,7 @@
                                     <th>Email</th>
                                     <th>Card UID</th>
                                     <th>Registered On</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="usersTableBody">
@@ -1592,6 +1593,14 @@
                     <td>${escapeHtml(user.email || 'N/A')}</td>
                     <td><span class="badge-card">${escapeHtml(String(user.unique_id || 'UID-TEMP'))}</span></td>
                     <td>Now</td>
+                    <td>
+                        <button class="btn-export btn-delete-user"
+                                data-id="${escapeHtml(String(user.user_id))}"
+                                data-name="${escapeHtml(user.full_name || 'this user')}"
+                                style="padding: 6px 12px; font-size: 0.8rem; background: #ef4444;">
+                            <i class="fas fa-trash"></i> Remove
+                        </button>
+                    </td>
                 </tr>
             `).join('');
         }
@@ -1630,6 +1639,36 @@
             `}).join('');
         }
 
+
+        document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-delete-user');
+    if (btn) deleteUser(btn.dataset.id, btn.dataset.name);
+        });
+
+        async function deleteUser(userId, fullName) {
+            if (!confirm(
+                `Remove ${fullName} from the system?\n\n` +
+                `This permanently deletes their account, card registration, and ALL of their attendance logs. This cannot be undone.`
+            )) return;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/persons/${userId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    await renderUsersTable();
+                    await renderRolesTable();
+                    await renderLogsTable();
+                    await updateStats();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                console.error('Error removing user:', err);
+                alert('Network error occurred.');
+            }
+        }
+        
         async function promoteUserToAdmin(userId) {
             if (!confirm('Are you sure you want to promote this user to Admin? Their data and password will be transferred to the admin database.')) return;
 
