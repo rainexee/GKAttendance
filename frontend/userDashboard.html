@@ -246,6 +246,142 @@
             gap: 10px;
         }
 
+        .calendar-layout {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 992px) {
+            .calendar-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .schedule-list-box {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            max-height: 650px;
+        }
+
+        .schedule-list-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+            color: #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .event-filter-pill {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            padding: 7px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .event-filter-pill:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #f1f5f9;
+        }
+
+        .event-filter-pill.active {
+            background: rgba(59, 130, 246, 0.25);
+            border-color: #3b82f6;
+            color: #60a5fa;
+            font-weight: 600;
+        }
+
+        .user-event-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 14px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+
+        .user-event-card:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+            background: rgba(30, 41, 59, 0.75);
+        }
+
+        .user-event-card.joined {
+            border-left: 4px solid #10b981;
+        }
+
+        .user-event-card.open {
+            border-left: 4px solid #3b82f6;
+        }
+
+        .user-event-card-title {
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .user-event-card-title:hover {
+            color: #60a5fa;
+        }
+
+        .user-event-card-loc {
+            font-size: 0.82rem;
+            color: #a855f7;
+            margin-bottom: 4px;
+        }
+
+        .user-event-card-time {
+            font-size: 0.78rem;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .status-badge-joined {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            font-size: 0.72rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .status-badge-open {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            font-size: 0.72rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
         .add-event-btn {
             background: linear-gradient(135deg, #3b82f6, #2563eb);
             border: none;
@@ -656,12 +792,36 @@
             <div id="calendarPanel" class="section-panel">
                 <div class="calendar-panel">
                     <div class="calendar-header">
-                        <h3><i class="fas fa-calendar-alt"></i> My Schedule</h3>
-                        <button class="add-event-btn" id="addEventBtn">
-                            <i class="fas fa-plus"></i> Add Event
-                        </button>
+                        <div>
+                            <h3><i class="fas fa-calendar-alt"></i> Events & Schedules</h3>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 4px;">Join lab sessions, review details, and see participant lists</p>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <button class="event-filter-pill active" id="filterAllEvents" onclick="setUserEventFilter('all')">
+                                <i class="fas fa-layer-group"></i> All Events
+                            </button>
+                            <button class="event-filter-pill" id="filterJoinedEvents" onclick="setUserEventFilter('joined')">
+                                <i class="fas fa-check-circle"></i> My Joined Events (<span id="userJoinedCounter">0</span>)
+                            </button>
+                            <button onclick="loadUserCalendarEvents()" class="event-filter-pill" title="Refresh Schedule" style="padding: 7px 12px;">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div id="calendar"></div>
+
+                    <div class="calendar-layout">
+                        <div id="calendar"></div>
+                        <div class="schedule-list-box">
+                            <div class="schedule-list-title">
+                                <i class="fas fa-clipboard-list"></i>
+                                <span>Upcoming Events</span>
+                            </div>
+                            <input type="text" id="userEventSearch" placeholder="Search events by title or location..." oninput="filterUserEventCards()" style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 12px; color: white; font-size: 0.85rem; margin-bottom: 10px; width: 100%;">
+                            <div id="userEventCardsContainer" style="overflow-y: auto; flex: 1; min-height: 250px; max-height: 520px; padding-right: 4px;">
+                                <!-- Event Cards Rendered Here -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -717,17 +877,58 @@
         </div>
     </div>
 
-    <!-- Add Event Modal -->
-    <div id="eventModal" class="modal">
-        <div class="modal-content">
-            <h3><i class="fas fa-plus-circle"></i> Add Schedule Event</h3>
-            <input type="text" id="eventTitle" placeholder="Event Title" required>
-            <input type="datetime-local" id="eventStart" required>
-            <input type="datetime-local" id="eventEnd" required>
-            <textarea id="eventDescription" placeholder="Description (optional)" rows="3"></textarea>
-            <div class="modal-buttons">
-                <button onclick="closeModal()">Cancel</button>
-                <button onclick="saveEvent()">Save Event</button>
+    <!-- User View Event Details & Attendees Modal -->
+    <div id="userEventDetailsModal" class="modal">
+        <div class="modal-content" style="max-width: 640px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                <div>
+                    <h3 id="userEventDetailTitle" style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px; color: #f1f5f9;">
+                        <i class="fas fa-calendar-check" style="color: #3b82f6;"></i> Event Details
+                    </h3>
+                    <p id="userEventDetailSubtitle" style="color: #94a3b8; font-size: 0.85rem; margin: 0;"></p>
+                </div>
+                <button onclick="closeUserEventDetailsModal()" style="background: rgba(255,255,255,0.1); border: none; color: #94a3b8; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Event Information Summary Card -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                    <span id="userEventDetailLocation" style="color: #a855f7; font-size: 0.9rem; font-weight: 500;">
+                        <i class="fas fa-map-marker-alt"></i> Location
+                    </span>
+                    <span id="userEventDetailCountBadge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.8rem; padding: 3px 10px; border-radius: 20px; font-weight: 600;">
+                        <i class="fas fa-users"></i> 0 Attending
+                    </span>
+                </div>
+                <div id="userEventDetailTime" style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 8px;">
+                    <i class="far fa-clock"></i> Time
+                </div>
+                <div id="userEventDetailDescription" style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+                    Description
+                </div>
+            </div>
+
+            <!-- Join / Leave Action Banner -->
+            <div id="userEventActionBanner" style="margin-bottom: 1rem;">
+                <!-- dynamic join/leave banner -->
+            </div>
+
+            <!-- Attendees on the List Section -->
+            <div style="flex: 1; display: flex; flex-direction: column; min-height: 180px; max-height: 280px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h4 style="color: #f1f5f9; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-clipboard-list" style="color: #10b981;"></i> Participants on the List (<span id="userModalAttendeeCount">0</span>)
+                    </h4>
+                </div>
+                <div id="userModalAttendeesList" style="overflow-y: auto; flex: 1; padding-right: 4px;">
+                    <!-- dynamic attendees -->
+                </div>
+            </div>
+
+            <div class="modal-buttons" style="margin-top: 1rem;">
+                <button onclick="closeUserEventDetailsModal()">Close</button>
             </div>
         </div>
     </div>
@@ -1046,103 +1247,375 @@
             `).join('');
         }
 
-        // Calendar functions
-        function loadCalendarEvents() {
-            const saved = localStorage.getItem(`calendar_events_${currentUser?.user_id}`);
-            if (saved) {
-                calendarEvents = JSON.parse(saved);
-                calendarEvents.forEach(event => {
-                    event.start = event.start ? new Date(event.start) : null;
-                    event.end = event.end ? new Date(event.end) : null;
-                });
+        // User Calendar & Events Management
+        let userEventsData = [];
+        let userEventFilter = 'all'; // 'all' or 'joined'
+        let currentUserModalEvent = null;
+
+        function formatDateTimeDisplay(dateStr) {
+            if (!dateStr) return 'N/A';
+            const d = new Date(dateStr);
+            return d.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        async function loadUserCalendarEvents() {
+            try {
+                const userId = currentUser?.user_id;
+                const url = userId ? `${API_BASE_URL}/api/events?user_id=${userId}` : `${API_BASE_URL}/api/events`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    userEventsData = data.data || [];
+                } else {
+                    userEventsData = [];
+                }
+            } catch (err) {
+                console.error('Error fetching events for user:', err);
+                userEventsData = [];
             }
-            return calendarEvents;
+
+            // Update badge for total joined events
+            const joinedCount = userEventsData.filter(e => e.is_joined == 1).length;
+            const counterEl = document.getElementById('userJoinedCounter');
+            if (counterEl) counterEl.innerText = joinedCount;
+
+            // Update calendar events
+            updateFullCalendarEvents();
+
+            // Render right-side events list
+            renderUserEventCardsList();
+
+            // If the event modal is open, refresh it with live data
+            if (currentUserModalEvent) {
+                const updatedEv = userEventsData.find(e => e.event_id == currentUserModalEvent.event_id);
+                if (updatedEv) {
+                    openUserEventDetailsModal(updatedEv.event_id, true);
+                }
+            }
         }
 
-        function saveCalendarEvents() {
-            const eventsToSave = calendarEvents.map(event => ({
-                ...event,
-                start: event.start ? event.start.toISOString() : null,
-                end: event.end ? event.end.toISOString() : null
+        function updateFullCalendarEvents() {
+            if (!calendar) return;
+
+            let filtered = userEventsData;
+            if (userEventFilter === 'joined') {
+                filtered = userEventsData.filter(e => e.is_joined == 1);
+            }
+
+            const fcEvents = filtered.map(e => ({
+                id: String(e.event_id),
+                title: (e.is_joined == 1 ? '✓ ' : '') + e.title,
+                start: e.start_time,
+                end: e.end_time,
+                backgroundColor: e.is_joined == 1 ? '#10b981' : '#3b82f6',
+                borderColor: e.is_joined == 1 ? '#059669' : '#2563eb',
+                textColor: '#ffffff',
+                extendedProps: {
+                    event_id: e.event_id,
+                    location: e.location,
+                    description: e.description,
+                    is_joined: e.is_joined == 1,
+                    attendee_count: e.attendee_count || 0
+                }
             }));
-            localStorage.setItem(`calendar_events_${currentUser?.user_id}`, JSON.stringify(eventsToSave));
+
+            calendar.removeAllEvents();
+            fcEvents.forEach(ev => calendar.addEvent(ev));
         }
 
-        function initCalendar() {
-            loadCalendarEvents();
-
+        async function initCalendar() {
             const calendarEl = document.getElementById('calendar');
+            if (!calendarEl) return;
+
             calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    right: 'dayGridMonth,timeGridWeek'
                 },
                 themeSystem: 'standard',
-                events: calendarEvents.map(event => ({
-                    id: event.id,
-                    title: event.title,
-                    start: event.start,
-                    end: event.end,
-                    description: event.description
-                })),
+                events: [],
                 eventClick: function (info) {
-                    if (confirm(`Delete event "${info.event.title}"?`)) {
-                        calendarEvents = calendarEvents.filter(e => e.id !== parseInt(info.event.id));
-                        saveCalendarEvents();
-                        info.event.remove();
-                    }
+                    openUserEventDetailsModal(info.event.id);
                 },
-                height: 'auto',
-                editable: true,
-                selectable: true
+                height: 'auto'
             });
             calendar.render();
+
+            await loadUserCalendarEvents();
         }
 
-        function addEvent() {
-            document.getElementById('eventModal').classList.add('active');
+        function setUserEventFilter(filter) {
+            userEventFilter = filter;
+            const btnAll = document.getElementById('filterAllEvents');
+            const btnJoined = document.getElementById('filterJoinedEvents');
+
+            if (filter === 'all') {
+                if (btnAll) btnAll.classList.add('active');
+                if (btnJoined) btnJoined.classList.remove('active');
+            } else {
+                if (btnAll) btnAll.classList.remove('active');
+                if (btnJoined) btnJoined.classList.add('active');
+            }
+
+            updateFullCalendarEvents();
+            renderUserEventCardsList();
         }
 
-        function closeModal() {
-            document.getElementById('eventModal').classList.remove('active');
-            document.getElementById('eventTitle').value = '';
-            document.getElementById('eventStart').value = '';
-            document.getElementById('eventEnd').value = '';
-            document.getElementById('eventDescription').value = '';
-        }
+        function renderUserEventCardsList() {
+            const container = document.getElementById('userEventCardsContainer');
+            if (!container) return;
 
-        function saveEvent() {
-            const title = document.getElementById('eventTitle').value.trim();
-            const start = document.getElementById('eventStart').value;
-            const end = document.getElementById('eventEnd').value;
-            const description = document.getElementById('eventDescription').value;
+            const searchQuery = (document.getElementById('userEventSearch')?.value || '').toLowerCase().trim();
 
-            if (!title || !start) {
-                alert('Please enter event title and start time');
+            let filtered = userEventsData;
+            if (userEventFilter === 'joined') {
+                filtered = filtered.filter(e => e.is_joined == 1);
+            }
+
+            if (searchQuery) {
+                filtered = filtered.filter(e => 
+                    (e.title && e.title.toLowerCase().includes(searchQuery)) ||
+                    (e.location && e.location.toLowerCase().includes(searchQuery)) ||
+                    (e.description && e.description.toLowerCase().includes(searchQuery))
+                );
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 3rem 1rem;">
+                        <i class="fas fa-calendar-times" style="font-size: 2.5rem; opacity: 0.3; display: block; margin-bottom: 0.8rem;"></i>
+                        <p style="font-size: 0.95rem; font-weight: 500; color: #94a3b8;">${userEventFilter === 'joined' ? 'You have not joined any events yet' : 'No events available'}</p>
+                        <p style="font-size: 0.8rem; margin-top: 4px;">${userEventFilter === 'joined' ? 'Switch to "All Events" to explore and join.' : 'Check back later for new schedules.'}</p>
+                    </div>
+                `;
                 return;
             }
 
-            const newEvent = {
-                id: Date.now(),
-                title: title,
-                start: new Date(start),
-                end: end ? new Date(end) : null,
-                description: description
-            };
+            container.innerHTML = filtered.map(ev => {
+                const isJoined = ev.is_joined == 1;
+                const timeFrom = formatDateTimeDisplay(ev.start_time);
+                const timeThen = ev.end_time ? formatDateTimeDisplay(ev.end_time) : 'Open-ended';
+                const attendeeCount = ev.attendee_count || 0;
 
-            calendarEvents.push(newEvent);
-            saveCalendarEvents();
-            calendar.addEvent({
-                id: newEvent.id,
-                title: newEvent.title,
-                start: newEvent.start,
-                end: newEvent.end,
-                description: newEvent.description
-            });
+                return `
+                    <div class="user-event-card ${isJoined ? 'joined' : 'open'}">
+                        <div class="user-event-card-title" onclick="openUserEventDetailsModal(${ev.event_id})">
+                            <span>${escapeHtml(ev.title)}</span>
+                            <span class="${isJoined ? 'status-badge-joined' : 'status-badge-open'}">
+                                ${isJoined ? '<i class="fas fa-check"></i> Joined' : '<i class="fas fa-plus"></i> Open'}
+                            </span>
+                        </div>
+                        <div class="user-event-card-loc">
+                            <i class="fas fa-map-marker-alt"></i> ${escapeHtml(ev.location || 'Location Not Specified')}
+                        </div>
+                        <div class="user-event-card-time">
+                            <div><strong>From:</strong> ${timeFrom}</div>
+                            <div><strong>Then:</strong> ${timeThen}</div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; margin-top: 6px;">
+                            <span style="font-size: 0.78rem; color: #94a3b8; display: flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-users" style="color: #60a5fa;"></i> ${attendeeCount} on the list
+                            </span>
+                            <div style="display: flex; gap: 6px;">
+                                <button onclick="openUserEventDetailsModal(${ev.event_id})" style="background: rgba(255,255,255,0.08); color: #cbd5e1; border: none; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 0.75rem; font-weight: 500;">
+                                    Details & List
+                                </button>
+                                ${isJoined ? `
+                                    <button onclick="toggleJoinLeaveEvent(${ev.event_id})" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 0.75rem; font-weight: 600;">
+                                        <i class="fas fa-sign-out-alt"></i> Leave
+                                    </button>
+                                ` : `
+                                    <button onclick="toggleJoinLeaveEvent(${ev.event_id})" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 4px 12px; border-radius: 12px; cursor: pointer; font-size: 0.75rem; font-weight: 600;">
+                                        <i class="fas fa-user-plus"></i> Join
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
 
-            closeModal();
+        function filterUserEventCards() {
+            renderUserEventCardsList();
+        }
+
+        async function openUserEventDetailsModal(eventId, isSilentRefresh = false) {
+            const ev = userEventsData.find(e => e.event_id == eventId);
+            if (!ev && !isSilentRefresh) return;
+
+            currentUserModalEvent = ev;
+
+            document.getElementById('userEventDetailTitle').innerHTML = `<i class="fas fa-calendar-check" style="color: #3b82f6;"></i> ${escapeHtml(ev.title)}`;
+            document.getElementById('userEventDetailSubtitle').innerText = `${formatDateTimeDisplay(ev.start_time)} • ${ev.location || 'No location'}`;
+            document.getElementById('userEventDetailLocation').innerHTML = `<i class="fas fa-map-marker-alt"></i> ${escapeHtml(ev.location || 'Location Not Specified')}`;
+            document.getElementById('userEventDetailCountBadge').innerHTML = `<i class="fas fa-users"></i> ${ev.attendee_count || 0} Attending`;
+
+            const timeFrom = formatDateTimeDisplay(ev.start_time);
+            const timeThen = ev.end_time ? formatDateTimeDisplay(ev.end_time) : 'Open-ended';
+            document.getElementById('userEventDetailTime').innerHTML = `<i class="far fa-clock"></i> <strong>From:</strong> ${timeFrom} &nbsp;|&nbsp; <strong>To:</strong> ${timeThen}`;
+            document.getElementById('userEventDetailDescription').innerHTML = ev.description ? escapeHtml(ev.description) : '<em style="color:#64748b;">No description provided.</em>';
+
+            // Join/Leave action banner
+            const actionBanner = document.getElementById('userEventActionBanner');
+            const isJoined = ev.is_joined == 1;
+
+            if (isJoined) {
+                actionBanner.innerHTML = `
+                    <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 10px; color: #34d399; font-weight: 600; font-size: 0.92rem;">
+                            <i class="fas fa-check-circle" style="font-size: 1.2rem;"></i>
+                            <span>You are on the list for this event!</span>
+                        </div>
+                        <button onclick="toggleJoinLeaveEvent(${ev.event_id})" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 8px 16px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-sign-out-alt"></i> Leave Event
+                        </button>
+                    </div>
+                `;
+            } else {
+                actionBanner.innerHTML = `
+                    <div style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 10px; color: #60a5fa; font-weight: 500; font-size: 0.9rem;">
+                            <i class="fas fa-info-circle" style="font-size: 1.2rem;"></i>
+                            <span>Registration is open. Join now to be added to the list!</span>
+                        </div>
+                        <button onclick="toggleJoinLeaveEvent(${ev.event_id})" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 18px; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+                            <i class="fas fa-user-plus"></i> Join Event
+                        </button>
+                    </div>
+                `;
+            }
+
+            // Load attendees list
+            const attendeesContainer = document.getElementById('userModalAttendeesList');
+            attendeesContainer.innerHTML = '<div style="text-align:center; padding: 1.5rem; color: #94a3b8;"><i class="fas fa-spinner fa-spin fa-lg"></i><p style="margin-top:6px; font-size:0.85rem;">Loading participant list...</p></div>';
+
+            if (!isSilentRefresh) {
+                document.getElementById('userEventDetailsModal').classList.add('active');
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/attendees`);
+                const json = await res.json();
+                if (!json.success) throw new Error(json.message);
+
+                const attendees = json.data || [];
+                document.getElementById('userModalAttendeeCount').innerText = attendees.length;
+                document.getElementById('userEventDetailCountBadge').innerHTML = `<i class="fas fa-users"></i> ${attendees.length} Attending`;
+
+                if (attendees.length === 0) {
+                    attendeesContainer.innerHTML = `
+                        <div style="text-align: center; color: #64748b; padding: 2rem 1rem;">
+                            <i class="fas fa-user-friends" style="font-size: 2.2rem; opacity: 0.3; display: block; margin-bottom: 0.5rem;"></i>
+                            <p style="font-size: 0.9rem; color: #94a3b8;">No one has joined yet</p>
+                            <p style="font-size: 0.8rem; margin-top: 2px;">Be the first to join this event!</p>
+                        </div>
+                    `;
+                } else {
+                    attendeesContainer.innerHTML = `
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            ${attendees.map(user => {
+                                const isSelf = currentUser && user.user_id === currentUser.user_id;
+                                const initial = (user.full_name || user.username || '?').charAt(0).toUpperCase();
+                                const joinedTime = user.assigned_at ? new Date(user.assigned_at).toLocaleString('en-US', {
+                                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                }) : '';
+
+                                return `
+                                    <div style="background: ${isSelf ? 'rgba(16, 185, 129, 0.12)' : 'rgba(15, 23, 42, 0.6)'}; border: 1px solid ${isSelf ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.06)'}; border-radius: 12px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                                        <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                                            <div style="width: 34px; height: 34px; border-radius: 10px; background: ${isSelf ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #3b82f6, #8b5cf6)'}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0;">
+                                                ${initial}
+                                            </div>
+                                            <div style="min-width: 0;">
+                                                <div style="font-weight: 600; color: #f1f5f9; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                                    <span>${escapeHtml(user.full_name || user.username || 'User')}</span>
+                                                    ${isSelf ? '<span style="background: #10b981; color: white; font-size: 0.68rem; padding: 1px 6px; border-radius: 10px; font-weight: 700;">YOU</span>' : ''}
+                                                    ${user.role_name ? `<span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; font-size: 0.7rem; padding: 1px 6px; border-radius: 8px;">${escapeHtml(user.role_name)}</span>` : ''}
+                                                    ${user.lab_name ? `<span style="background: rgba(168, 85, 247, 0.15); color: #c084fc; font-size: 0.7rem; padding: 1px 6px; border-radius: 8px;">${escapeHtml(user.lab_name)}</span>` : ''}
+                                                </div>
+                                                ${joinedTime ? `<div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;"><i class="far fa-clock"></i> Joined: ${joinedTime}</div>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                console.error('Error fetching event attendees:', err);
+                attendeesContainer.innerHTML = `<div style="text-align:center; color: #f87171; padding: 1.5rem; font-size: 0.85rem;">Failed to load attendees list.</div>`;
+            }
+        }
+
+        function closeUserEventDetailsModal() {
+            const modal = document.getElementById('userEventDetailsModal');
+            if (modal) modal.classList.remove('active');
+            currentUserModalEvent = null;
+        }
+
+        async function toggleJoinLeaveEvent(eventId) {
+            if (!currentUser || !currentUser.user_id) {
+                alert('Please log in again to manage event participation.');
+                return;
+            }
+
+            const ev = userEventsData.find(e => e.event_id == eventId);
+            if (!ev) return;
+
+            const isJoined = ev.is_joined == 1;
+
+            if (isJoined) {
+                if (!confirm(`Are you sure you want to leave the event "${ev.title}"?`)) {
+                    return;
+                }
+
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/leave`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: currentUser.user_id })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert(`You have left "${ev.title}".`);
+                        await loadUserCalendarEvents();
+                    } else {
+                        alert(data.message || 'Failed to leave event.');
+                    }
+                } catch (err) {
+                    console.error('Error leaving event:', err);
+                    alert('Network error while leaving event.');
+                }
+            } else {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/join`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: currentUser.user_id })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert(`Congratulations! You have joined "${ev.title}" and are now on the official list.`);
+                        await loadUserCalendarEvents();
+                    } else {
+                        alert(data.message || 'Failed to join event.');
+                    }
+                } catch (err) {
+                    console.error('Error joining event:', err);
+                    alert('Network error while joining event.');
+                }
+            }
         }
 
         // Helper functions
@@ -1173,7 +1646,7 @@
         }
 
         // Tab switching
-        function switchTab(tabId) {
+        async function switchTab(tabId) {
             document.querySelectorAll('.section-panel').forEach(panel => panel.classList.remove('active-section'));
             document.getElementById(`${tabId}Panel`).classList.add('active-section');
 
@@ -1189,8 +1662,12 @@
                 renderRecentActivity();
             } else if (tabId === 'attendance') {
                 renderAttendanceHistory();
-            } else if (tabId === 'calendar' && calendar) {
-                calendar.render();
+            } else if (tabId === 'calendar') {
+                await loadUserCalendarEvents();
+                if (calendar) {
+                    calendar.updateSize();
+                    calendar.render();
+                }
             }
         }
 
@@ -1212,7 +1689,7 @@
             await updateUserStats();
             await renderRecentActivity();
             await renderAttendanceHistory();
-            initCalendar();
+            await initCalendar();
 
             // Nav listeners
             document.querySelectorAll('.nav-item[data-tab]').forEach(nav => {
@@ -1226,15 +1703,15 @@
             // Logout button
             document.getElementById('logoutBtn').addEventListener('click', logout);
 
-            // Add event button
-            document.getElementById('addEventBtn').addEventListener('click', addEvent);
-
-            // Close modal on outside click
-            document.getElementById('eventModal').addEventListener('click', (e) => {
-                if (e.target === document.getElementById('eventModal')) {
-                    closeModal();
-                }
-            });
+            // User Event Details Modal click outside
+            const userEventModal = document.getElementById('userEventDetailsModal');
+            if (userEventModal) {
+                userEventModal.addEventListener('click', (e) => {
+                    if (e.target === userEventModal) {
+                        closeUserEventDetailsModal();
+                    }
+                });
+            }
 
             // Change password button (profile panel)
             const openChangePwBtn = document.getElementById('openChangePasswordBtn');

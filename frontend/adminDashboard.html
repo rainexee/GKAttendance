@@ -900,8 +900,10 @@
                         <div class="panel-header" style="border:none; padding:0 0 1rem 0;">
                             <div>
                                 <h3>Target Selection Matrix</h3>
-                                <p style="color: #94a3b8; font-size:0.85rem; margin-top:4px;">Select specific personnel
-                                    targets to bind to operational schedules</p>
+                                <p style="color: #94a3b8; font-size:0.85rem; margin-top:4px;">Select specific personnel targets to bind to operational schedules</p>
+                                <p id="activeEventAssignNotice" style="color: #60a5fa; font-size: 0.85rem; margin-top: 4px; font-weight: 500;">
+                                    <i class="fas fa-info-circle"></i> No event currently selected. Click "Assign" on an event from Setting Schedules.
+                                </p>
                             </div>
                             <button class="btn-export" style="background:#3b82f6;" id="saveAssignedUsersBtn">
                                 <i class="fas fa-save"></i> Save Operational Selections
@@ -962,6 +964,83 @@
         </div>
     </div>
 
+    <!-- Admin Event Details Modal (when clicking calendar event) -->
+    <div id="adminEventDetailsModal" class="modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.2rem;">
+                <h3 id="adminEventDetailTitle" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px; color: #f1f5f9;">
+                    <i class="fas fa-calendar-day" style="color: #3b82f6;"></i> Event Details
+                </h3>
+                <button onclick="closeAdminEventDetailsModal()" style="background: rgba(255,255,255,0.1); border: none; color: #94a3b8; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 1.2rem; margin-bottom: 1.2rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <span id="adminEventDetailLocation" style="color: #a855f7; font-size: 0.9rem; font-weight: 500;">
+                        <i class="fas fa-map-marker-alt"></i> Location
+                    </span>
+                    <span id="adminEventDetailCountBadge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.8rem; padding: 3px 10px; border-radius: 20px; font-weight: 600;">
+                        <i class="fas fa-users"></i> 0 Attending
+                    </span>
+                </div>
+                <div id="adminEventDetailTime" style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">
+                    <i class="far fa-clock"></i> Time
+                </div>
+                <div id="adminEventDetailDescription" style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                    Description
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+                <button id="adminEventDetailDeleteBtn" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 8px 14px; border-radius: 30px; font-weight: 600; cursor: pointer; font-size: 0.85rem;">
+                    <i class="fas fa-trash-alt"></i> Delete
+                </button>
+                <button id="adminEventDetailAssignBtn" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 8px 14px; border-radius: 30px; font-weight: 600; cursor: pointer; font-size: 0.85rem;">
+                    <i class="fas fa-user-check"></i> Assign Users
+                </button>
+                <button id="adminEventDetailAttendeesBtn" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 16px; border-radius: 30px; font-weight: 600; cursor: pointer; font-size: 0.85rem;">
+                    <i class="fas fa-users"></i> View Attendee List
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin View Event Attendees Modal -->
+    <div id="adminAttendeeModal" class="modal">
+        <div class="modal-content" style="max-width: 680px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                <div>
+                    <h3 id="adminAttendeeModalTitle" style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-users" style="color: #3b82f6;"></i> Event Attendee List
+                    </h3>
+                    <p id="adminAttendeeModalSubtitle" style="color: #94a3b8; font-size: 0.85rem; margin: 0;"></p>
+                </div>
+                <button onclick="closeAdminAttendeeModal()" style="background: rgba(255,255,255,0.1); border: none; color: #94a3b8; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Search and Action bar -->
+            <div style="display: flex; gap: 10px; margin-bottom: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                <input type="text" id="adminAttendeeSearch" placeholder="Search attendees by name, email, ID..." oninput="filterAdminAttendees()" style="margin-bottom: 0; padding: 8px 14px; font-size: 0.85rem; flex: 1; min-width: 200px;">
+                <button id="adminAssignMoreBtn" onclick="assignMoreUsersFromModal()" style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-user-plus"></i> Assign Users
+                </button>
+            </div>
+
+            <!-- Attendees Container Table / List -->
+            <div id="adminAttendeeListContainer" style="overflow-y: auto; flex: 1; min-height: 200px; max-height: 380px; padding-right: 4px;">
+                <!-- dynamic content -->
+            </div>
+
+            <div class="modal-buttons" style="margin-top: 1rem;">
+                <button onclick="closeAdminAttendeeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_BASE_URL = window.location.origin;
 
@@ -1002,6 +1081,12 @@
                     const data = await res.json();
                     if (data.success) {
                         alert('Assignments saved successfully!');
+                        await loadCalendarEvents();
+                        renderSchedulesListView();
+                        if (calendar) {
+                            calendar.removeAllEvents();
+                            calendarEvents.forEach(ev => calendar.addEvent(ev));
+                        }
                     } else {
                         alert('Failed to save assignments: ' + data.message);
                     }
@@ -1486,6 +1571,9 @@
             });
         }
 
+        let currentModalEventId = null;
+        let currentModalAttendees = [];
+
         async function loadCalendarEvents() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/events`);
@@ -1497,7 +1585,8 @@
                         start: e.start_time,
                         end: e.end_time,
                         location: e.location,
-                        description: e.description
+                        description: e.description,
+                        attendee_count: e.attendee_count || 0
                     }));
                 }
             } catch (err) {
@@ -1516,20 +1605,8 @@
                     right: 'dayGridMonth,timeGridWeek'
                 },
                 events: calendarEvents,
-                eventClick: async function (info) {
-                    if (confirm(`Delete event "${info.event.title}"?`)) {
-                        try {
-                            const res = await fetch(`${API_BASE_URL}/api/events/${info.event.id}`, { method: 'DELETE' });
-                            if (res.ok) {
-                                calendarEvents = calendarEvents.filter(e => e.id != info.event.id);
-                                renderSchedulesListView();
-                                info.event.remove();
-                                if (activeEventId == info.event.id) activeEventId = null;
-                            }
-                        } catch (err) {
-                            console.error('Delete error', err);
-                        }
-                    }
+                eventClick: function (info) {
+                    openAdminEventDetailsModal(info.event.id);
                 }
             });
             calendar.render();
@@ -1548,20 +1625,32 @@
                 const timeFrom = formatDateTimeDisplay(ev.start);
                 const timeThen = ev.end ? formatDateTimeDisplay(ev.end) : 'Open-ended';
                 const isActive = activeEventId == ev.id;
+                const attendeeCount = ev.attendee_count || 0;
                 return `
                     <div class="schedule-item" style="border-left: 4px solid ${isActive ? '#10b981' : '#3b82f6'};">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 8px;">
                             <div>
-                                <div class="schedule-item-title">${escapeHtml(ev.title)}</div>
+                                <div class="schedule-item-title" style="cursor: pointer;" onclick="openAdminEventDetailsModal(${ev.id})">${escapeHtml(ev.title)}</div>
                                 <div class="schedule-item-loc"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(ev.location || 'Not Defined')}</div>
                             </div>
-                            <button onclick="selectEventForAssignment(${ev.id})" style="background: ${isActive ? '#10b981' : 'rgba(59,130,246,0.2)'}; color: ${isActive ? 'white' : '#60a5fa'}; border: none; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 0.8rem;">
-                                ${isActive ? 'Selected' : 'Assign'}
-                            </button>
+                            <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.78rem; padding: 3px 8px; border-radius: 20px; font-weight: 600; white-space: nowrap;">
+                                <i class="fas fa-users"></i> ${attendeeCount}
+                            </span>
                         </div>
-                        <div class="schedule-item-time" style="margin-top: 8px;">
+                        <div class="schedule-item-time" style="margin-top: 6px; margin-bottom: 8px;">
                             <div><strong>From:</strong> ${timeFrom}</div>
                             <div><strong>Then:</strong> ${timeThen}</div>
+                        </div>
+                        <div style="display: flex; gap: 6px; align-items: center; justify-content: flex-end; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
+                            <button onclick="openAdminAttendeeModal(${ev.id})" title="View Attendees List" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 0.78rem; display: flex; align-items: center; gap: 4px; font-weight: 500;">
+                                <i class="fas fa-clipboard-list"></i> Attendees (${attendeeCount})
+                            </button>
+                            <button onclick="selectEventForAssignment(${ev.id})" style="background: ${isActive ? '#10b981' : 'rgba(59,130,246,0.2)'}; color: ${isActive ? 'white' : '#60a5fa'}; border: none; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 0.78rem; font-weight: 500;">
+                                ${isActive ? 'Selected' : 'Assign'}
+                            </button>
+                            <button onclick="deleteEventById(${ev.id})" title="Delete Event" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: none; padding: 4px 8px; border-radius: 12px; cursor: pointer; font-size: 0.78rem;">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -1571,6 +1660,12 @@
         async function selectEventForAssignment(eventId) {
             activeEventId = eventId;
             renderSchedulesListView();
+
+            const ev = calendarEvents.find(e => e.id == eventId);
+            const noticeEl = document.getElementById('activeEventAssignNotice');
+            if (noticeEl && ev) {
+                noticeEl.innerHTML = `<i class="fas fa-check-circle" style="color: #10b981;"></i> Assigning personnel for: <strong>${escapeHtml(ev.title)}</strong>`;
+            }
 
             const usersTabBtn = document.querySelector('[data-inner-tab="usersTab"]');
             if (usersTabBtn) usersTabBtn.click();
@@ -1586,6 +1681,207 @@
             } catch (err) {
                 console.error('Error fetching assignments', err);
             }
+        }
+
+        async function deleteEventById(id) {
+            const ev = calendarEvents.find(e => e.id == id);
+            const title = ev ? ev.title : 'this event';
+            if (!confirm(`Are you sure you want to delete event "${title}"?\nThis will remove all user assignments as well.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/events/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    calendarEvents = calendarEvents.filter(e => e.id != id);
+                    renderSchedulesListView();
+                    if (calendar) {
+                        const calEv = calendar.getEventById(String(id));
+                        if (calEv) calEv.remove();
+                    }
+                    if (activeEventId == id) {
+                        activeEventId = null;
+                        const noticeEl = document.getElementById('activeEventAssignNotice');
+                        if (noticeEl) {
+                            noticeEl.innerHTML = '<i class="fas fa-info-circle"></i> No event currently selected. Click "Assign" on an event from Setting Schedules.';
+                        }
+                    }
+                    closeAdminEventDetailsModal();
+                } else {
+                    alert('Failed to delete event');
+                }
+            } catch (err) {
+                console.error('Delete error', err);
+                alert('Network error deleting event');
+            }
+        }
+
+        function openAdminEventDetailsModal(eventId) {
+            const ev = calendarEvents.find(e => e.id == eventId);
+            if (!ev) return;
+
+            document.getElementById('adminEventDetailTitle').innerHTML = `<i class="fas fa-calendar-day" style="color: #3b82f6;"></i> ${escapeHtml(ev.title)}`;
+            document.getElementById('adminEventDetailLocation').innerHTML = `<i class="fas fa-map-marker-alt"></i> ${escapeHtml(ev.location || 'Location Not Specified')}`;
+            document.getElementById('adminEventDetailCountBadge').innerHTML = `<i class="fas fa-users"></i> ${ev.attendee_count || 0} Attending`;
+            
+            const timeFrom = formatDateTimeDisplay(ev.start);
+            const timeThen = ev.end ? formatDateTimeDisplay(ev.end) : 'Open-ended';
+            document.getElementById('adminEventDetailTime').innerHTML = `<i class="far fa-clock"></i> <strong>From:</strong> ${timeFrom} &nbsp;|&nbsp; <strong>To:</strong> ${timeThen}`;
+            document.getElementById('adminEventDetailDescription').innerHTML = ev.description ? escapeHtml(ev.description) : '<em style="color:#64748b;">No description provided.</em>';
+
+            document.getElementById('adminEventDetailDeleteBtn').onclick = () => deleteEventById(eventId);
+            document.getElementById('adminEventDetailAssignBtn').onclick = () => {
+                closeAdminEventDetailsModal();
+                selectEventForAssignment(eventId);
+            };
+            document.getElementById('adminEventDetailAttendeesBtn').onclick = () => {
+                closeAdminEventDetailsModal();
+                openAdminAttendeeModal(eventId);
+            };
+
+            document.getElementById('adminEventDetailsModal').classList.add('active');
+        }
+
+        function closeAdminEventDetailsModal() {
+            const modal = document.getElementById('adminEventDetailsModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        async function openAdminAttendeeModal(eventId) {
+            currentModalEventId = eventId;
+            const container = document.getElementById('adminAttendeeListContainer');
+            container.innerHTML = '<div style="text-align:center; padding: 2rem; color: #94a3b8;"><i class="fas fa-spinner fa-spin fa-2x"></i><p style="margin-top: 10px;">Loading attendees list...</p></div>';
+            document.getElementById('adminAttendeeModal').classList.add('active');
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/events/${eventId}`);
+                const json = await res.json();
+                if (!json.success) throw new Error(json.message);
+
+                const eventData = json.data;
+                currentModalAttendees = eventData.attendees || [];
+
+                document.getElementById('adminAttendeeModalTitle').innerHTML = `<i class="fas fa-users" style="color: #3b82f6;"></i> ${escapeHtml(eventData.title)}`;
+                document.getElementById('adminAttendeeModalSubtitle').innerText = `${formatDateTimeDisplay(eventData.start_time)} • ${eventData.location || 'No location specified'} • Total: ${currentModalAttendees.length} Attendee(s)`;
+
+                document.getElementById('adminAttendeeSearch').value = '';
+                renderAdminAttendeeList(currentModalAttendees);
+            } catch (err) {
+                console.error('Error fetching attendees:', err);
+                container.innerHTML = `<div style="text-align:center; color: #f87171; padding: 2rem;"><i class="fas fa-exclamation-triangle fa-2x"></i><p style="margin-top: 8px;">Error loading attendees: ${escapeHtml(err.message)}</p></div>`;
+            }
+        }
+
+        function closeAdminAttendeeModal() {
+            const modal = document.getElementById('adminAttendeeModal');
+            if (modal) modal.classList.remove('active');
+            currentModalEventId = null;
+            currentModalAttendees = [];
+        }
+
+        function renderAdminAttendeeList(attendees) {
+            const container = document.getElementById('adminAttendeeListContainer');
+            if (!container) return;
+
+            if (!attendees || attendees.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 3rem 1rem;">
+                        <i class="fas fa-user-friends" style="font-size: 2.8rem; margin-bottom: 0.8rem; opacity: 0.3; display: block;"></i>
+                        <p style="font-size: 1rem; font-weight: 500; color: #94a3b8;">No attendees on the list yet</p>
+                        <p style="font-size: 0.82rem; margin-top: 4px;">Users can join from their portal, or you can assign them via "Assign Users".</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    ${attendees.map(user => {
+                        const initial = (user.full_name || user.username || '?').charAt(0).toUpperCase();
+                        const joinedTime = user.assigned_at ? new Date(user.assigned_at).toLocaleString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        }) : 'N/A';
+                        return `
+                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                                    <div style="width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; flex-shrink: 0;">
+                                        ${initial}
+                                    </div>
+                                    <div style="min-width: 0;">
+                                        <div style="font-weight: 600; color: #f1f5f9; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                            <span>${escapeHtml(user.full_name || user.username || 'Unknown')}</span>
+                                            ${user.role_name ? `<span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; font-weight: 500;">${escapeHtml(user.role_name)}</span>` : ''}
+                                            ${user.lab_name ? `<span style="background: rgba(168, 85, 247, 0.15); color: #c084fc; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; font-weight: 500;">${escapeHtml(user.lab_name)}</span>` : ''}
+                                        </div>
+                                        <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 2px;">
+                                            ${user.dlsu_idnumber ? `<span>ID: ${escapeHtml(String(user.dlsu_idnumber))}</span> &bull; ` : ''}
+                                            <span>${escapeHtml(user.email || 'No email')}</span>
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                                            <i class="far fa-calendar-check"></i> Added: ${joinedTime}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onclick="removeAttendeeFromEvent(${currentModalEventId}, ${user.user_id}, '${escapeHtml(user.full_name || user.username)}')" title="Remove user from this event" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); padding: 6px 12px; border-radius: 12px; cursor: pointer; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                                    <i class="fas fa-user-minus"></i> Remove
+                                </button>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function filterAdminAttendees() {
+            const query = (document.getElementById('adminAttendeeSearch').value || '').toLowerCase().trim();
+            if (!query) {
+                renderAdminAttendeeList(currentModalAttendees);
+                return;
+            }
+            const filtered = currentModalAttendees.filter(u => {
+                return (u.full_name && u.full_name.toLowerCase().includes(query)) ||
+                       (u.username && u.username.toLowerCase().includes(query)) ||
+                       (u.email && u.email.toLowerCase().includes(query)) ||
+                       (u.dlsu_idnumber && String(u.dlsu_idnumber).includes(query)) ||
+                       (u.role_name && u.role_name.toLowerCase().includes(query));
+            });
+            renderAdminAttendeeList(filtered);
+        }
+
+        async function removeAttendeeFromEvent(eventId, userId, userName) {
+            if (!confirm(`Are you sure you want to remove "${userName}" from this event's attendee list?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/attendees/${userId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentModalAttendees = currentModalAttendees.filter(u => u.user_id !== userId);
+                    filterAdminAttendees();
+
+                    // Update event attendee_count in calendarEvents
+                    const ev = calendarEvents.find(e => e.id == eventId);
+                    if (ev) ev.attendee_count = Math.max(0, (ev.attendee_count || 1) - 1);
+                    renderSchedulesListView();
+
+                    document.getElementById('adminAttendeeModalSubtitle').innerText = `${formatDateTimeDisplay(ev ? ev.start : null)} • Total: ${currentModalAttendees.length} Attendee(s)`;
+                } else {
+                    alert('Error removing attendee: ' + data.message);
+                }
+            } catch (err) {
+                console.error('Error removing attendee', err);
+                alert('Network error removing attendee.');
+            }
+        }
+
+        function assignMoreUsersFromModal() {
+            if (!currentModalEventId) return;
+            const targetId = currentModalEventId;
+            closeAdminAttendeeModal();
+            selectEventForAssignment(targetId);
         }
         // LOGOUT BUTTON HANDLER
         const logoutButton = document.getElementById('logoutBtn');
@@ -1660,18 +1956,12 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    const e = data.data;
-                    const eventObj = {
-                        id: e.event_id,
-                        title: e.title,
-                        start: e.start_time,
-                        end: e.end_time,
-                        location: e.location,
-                        description: e.description
-                    };
-                    calendarEvents.push(eventObj);
+                    await loadCalendarEvents();
                     renderSchedulesListView();
-                    if (calendar) calendar.addEvent(eventObj);
+                    if (calendar) {
+                        calendar.removeAllEvents();
+                        calendarEvents.forEach(ev => calendar.addEvent(ev));
+                    }
                     closeModal();
                 } else {
                     alert('Error saving event: ' + data.message);

@@ -1529,16 +1529,94 @@ app.put('/api/calendar/:date', async (req, res) => {
 // EVENTS API ROUTES
 // ==========================================
 
-// GET all events
+// GET all events (optional ?user_id=X to include is_joined flag)
 app.get('/api/events', async (req, res) => {
+    const userId = req.query.user_id ? parseInt(req.query.user_id) : null;
     try {
-        const [rows] = await promisePool.query(
-            'SELECT * FROM Events ORDER BY start_time ASC'
-        );
+        let query;
+        let params = [];
+        if (userId) {
+            query = `
+                SELECT 
+                    e.event_id,
+                    e.title,
+                    e.location,
+                    e.description,
+                    e.start_time,
+                    e.end_time,
+                    e.created_at,
+                    COUNT(ea.user_id) AS attendee_count,
+                    MAX(CASE WHEN ea.user_id = ? THEN 1 ELSE 0 END) AS is_joined
+                FROM Events e
+                LEFT JOIN EventAssignments ea ON e.event_id = ea.event_id
+                GROUP BY e.event_id
+                ORDER BY e.start_time ASC
+            `;
+            params = [userId];
+        } else {
+            query = `
+                SELECT 
+                    e.event_id,
+                    e.title,
+                    e.location,
+                    e.description,
+                    e.start_time,
+                    e.end_time,
+                    e.created_at,
+                    COUNT(ea.user_id) AS attendee_count
+                FROM Events e
+                LEFT JOIN EventAssignments ea ON e.event_id = ea.event_id
+                GROUP BY e.event_id
+                ORDER BY e.start_time ASC
+            `;
+        }
+        const [rows] = await promisePool.query(query, params);
         res.status(200).json({ success: true, data: rows });
     } catch (error) {
         console.error('Error fetching events:', error);
         res.status(500).json({ success: false, message: 'Error fetching events' });
+    }
+});
+
+// GET single event details + attendees list
+app.get('/api/events/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [eventRows] = await promisePool.query('SELECT * FROM Events WHERE event_id = ?', [id]);
+        if (eventRows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Event not found' });
+        }
+
+        const [attendees] = await promisePool.query(`
+            SELECT 
+                p.user_id,
+                p.full_name,
+                p.username,
+                p.email,
+                i.dlsu_idnumber,
+                r.role_name,
+                gl.lab_name,
+                ea.assigned_at
+            FROM EventAssignments ea
+            INNER JOIN Person p ON ea.user_id = p.user_id
+            LEFT JOIN ID i ON p.unique_id = i.unique_id
+            LEFT JOIN Role r ON p.role_id = r.role_id
+            LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
+            WHERE ea.event_id = ?
+            ORDER BY ea.assigned_at ASC
+        `, [id]);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ...eventRows[0],
+                attendees,
+                attendee_count: attendees.length
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching event details:', error);
+        res.status(500).json({ success: false, message: 'Error fetching event details' });
     }
 });
 
@@ -1575,7 +1653,36 @@ app.delete('/api/events/:id', async (req, res) => {
     }
 });
 
-// GET users assigned to an event
+// GET full attendees list for an event
+app.get('/api/events/:id/attendees', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [rows] = await promisePool.query(`
+            SELECT 
+                p.user_id,
+                p.full_name,
+                p.username,
+                p.email,
+                i.dlsu_idnumber,
+                r.role_name,
+                gl.lab_name,
+                ea.assigned_at
+            FROM EventAssignments ea
+            INNER JOIN Person p ON ea.user_id = p.user_id
+            LEFT JOIN ID i ON p.unique_id = i.unique_id
+            LEFT JOIN Role r ON p.role_id = r.role_id
+            LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
+            WHERE ea.event_id = ?
+            ORDER BY ea.assigned_at ASC
+        `, [id]);
+        res.status(200).json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Error fetching event attendees:', error);
+        res.status(500).json({ success: false, message: 'Error fetching attendees' });
+    }
+});
+
+// GET user IDs assigned to an event (backward compatible array of IDs)
 app.get('/api/events/:id/assignments', async (req, res) => {
     const { id } = req.params;
     try {
@@ -1590,7 +1697,7 @@ app.get('/api/events/:id/assignments', async (req, res) => {
     }
 });
 
-// POST assign users to an event (replaces existing assignments + sends email)
+// POST assign users to an event (admin replaces existing assignments + sends email)
 app.post('/api/events/:id/assignments', async (req, res) => {
     const { id } = req.params;
     const { user_ids } = req.body; // array of user_ids
@@ -1626,7 +1733,7 @@ app.post('/api/events/:id/assignments', async (req, res) => {
         connection.release();
 
         // Send email notifications to all assigned users
-        if (user_ids.length > 0) {
+        if (user_ids.length > 0 && process.env.EMAIL_USER && process.env.EMAIL_PASS && process.env.EMAIL_USER !== 'you@gmail.com') {
             const [personRows] = await promisePool.query(
                 'SELECT full_name, email FROM Person WHERE user_id IN (?) AND email IS NOT NULL AND email != ""',
                 [user_ids]
@@ -1693,7 +1800,136 @@ app.post('/api/events/:id/assignments', async (req, res) => {
     }
 });
 
-// GET events assigned to a specific user (for user dashboard calendar)
+// POST join an event (for users)
+app.post('/api/events/:id/join', async (req, res) => {
+    const { id } = req.params;
+    const { user_id } = req.body;
+
+    if (!user_id) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+
+    try {
+        const [eventRows] = await promisePool.query('SELECT * FROM Events WHERE event_id = ?', [id]);
+        if (eventRows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Event not found.' });
+        }
+        const event = eventRows[0];
+
+        const [userRows] = await promisePool.query('SELECT * FROM Person WHERE user_id = ?', [user_id]);
+        if (userRows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+        const user = userRows[0];
+
+        // Check if already registered
+        const [existing] = await promisePool.query(
+            'SELECT assignment_id FROM EventAssignments WHERE event_id = ? AND user_id = ?',
+            [id, user_id]
+        );
+        if (existing.length > 0) {
+            return res.status(200).json({ success: true, message: 'You have already joined this event.', alreadyJoined: true });
+        }
+
+        await promisePool.query(
+            'INSERT INTO EventAssignments (event_id, user_id) VALUES (?, ?)',
+            [id, user_id]
+        );
+
+        // Send confirmation email asynchronously if mail is configured
+        if (user.email && process.env.EMAIL_USER && process.env.EMAIL_PASS && process.env.EMAIL_USER !== 'you@gmail.com') {
+            const startFormatted = new Date(event.start_time).toLocaleString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+            const endFormatted = event.end_time
+                ? new Date(event.end_time).toLocaleString('en-US', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                })
+                : 'Open-ended';
+
+            const mailOptions = {
+                from: `"GKAttendance" <${process.env.EMAIL_USER}>`,
+                to: user.email,
+                subject: `GKAttendance — Registration Confirmed: ${event.title}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
+                        <div style="text-align: center; margin-bottom: 24px;">
+                            <h2 style="color: #3b82f6; margin: 0;">GKAttendance</h2>
+                            <p style="color: #64748b; font-size: 14px; margin: 4px 0 0;">Event Registration Confirmed</p>
+                        </div>
+                        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 24px;" />
+                        <p style="font-size: 16px; line-height: 1.5;">Hello <strong>${user.full_name || user.username}</strong>,</p>
+                        <p style="font-size: 16px; line-height: 1.5;">You have successfully joined the following event:</p>
+                        <div style="background-color: #f1f5f9; border-left: 4px solid #10b981; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                            <h3 style="margin: 0 0 12px 0; color: #0f172a; font-size: 1.2rem;">${event.title}</h3>
+                            ${event.location ? `<p style="margin: 6px 0; color: #475569;"><strong>📍 Location:</strong> ${event.location}</p>` : ''}
+                            <p style="margin: 6px 0; color: #475569;"><strong>🕐 Starts:</strong> ${startFormatted}</p>
+                            <p style="margin: 6px 0; color: #475569;"><strong>🕐 Ends:</strong> ${endFormatted}</p>
+                            ${event.description ? `<p style="margin: 12px 0 0 0; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 12px;"><strong>📋 Details:</strong> ${event.description}</p>` : ''}
+                        </div>
+                        <p style="font-size: 15px; color: #64748b;">You are now on the official attendee list for this event. You can check it under <strong>My Schedule</strong> anytime.</p>
+                    </div>
+                `
+            };
+            transport.sendMail(mailOptions).catch(err => console.error('Join email notification failed:', err.message));
+        }
+
+        res.status(200).json({ success: true, message: 'Successfully joined the event!' });
+    } catch (error) {
+        console.error('Error joining event:', error);
+        res.status(500).json({ success: false, message: 'Internal server error while joining event.' });
+    }
+});
+
+// POST leave an event (for users)
+app.post('/api/events/:id/leave', async (req, res) => {
+    const { id } = req.params;
+    const { user_id } = req.body;
+
+    if (!user_id) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+
+    try {
+        const [result] = await promisePool.query(
+            'DELETE FROM EventAssignments WHERE event_id = ? AND user_id = ?',
+            [id, user_id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'You are not on the list for this event.' });
+        }
+
+        res.status(200).json({ success: true, message: 'Successfully left the event.' });
+    } catch (error) {
+        console.error('Error leaving event:', error);
+        res.status(500).json({ success: false, message: 'Internal server error while leaving event.' });
+    }
+});
+
+// DELETE remove an attendee from an event (for admin)
+app.delete('/api/events/:id/attendees/:userId', async (req, res) => {
+    const { id, userId } = req.params;
+    try {
+        const [result] = await promisePool.query(
+            'DELETE FROM EventAssignments WHERE event_id = ? AND user_id = ?',
+            [id, userId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Attendee not found on this event list.' });
+        }
+
+        res.status(200).json({ success: true, message: 'Attendee removed successfully.' });
+    } catch (error) {
+        console.error('Error removing attendee:', error);
+        res.status(500).json({ success: false, message: 'Internal server error removing attendee.' });
+    }
+});
+
+// GET events assigned to or joined by a specific user (for user dashboard calendar)
 app.get('/api/user/:id/events', async (req, res) => {
     const { id } = req.params;
     try {
@@ -1705,7 +1941,9 @@ app.get('/api/user/:id/events', async (req, res) => {
                 e.description,
                 e.start_time,
                 e.end_time,
-                e.created_at
+                e.created_at,
+                ea.assigned_at,
+                (SELECT COUNT(*) FROM EventAssignments WHERE event_id = e.event_id) AS attendee_count
             FROM Events e
             INNER JOIN EventAssignments ea ON e.event_id = ea.event_id
             WHERE ea.user_id = ?
