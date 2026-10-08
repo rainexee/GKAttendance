@@ -2,15 +2,19 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2');
 const path = require('path');
+const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const csvSync = require('./csvSync');
 
 // Load environment variables from the root .env file
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
+const CSV_FILE_PATH = path.join(__dirname, '../users.csv');
+let csvWatcherHandle = null;
 
 // Database connection pool
 const pool = mysql.createPool({
@@ -49,13 +53,56 @@ const promisePool = pool.promise();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.text({ type: ['text/csv', 'text/plain'], limit: '10mb' }));
 
-app.use(express.static(path.join(__dirname, '../frontend')))
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Helper to keep users.csv synchronized on disk without triggering watcher loop
+async function refreshCsvOnDisk() {
+    try {
+        if (csvWatcherHandle && typeof csvWatcherHandle.setInternalWriting === 'function') {
+            csvWatcherHandle.setInternalWriting(true);
+        }
+        await csvSync.exportUsersToCSVFile(promisePool, CSV_FILE_PATH);
+    } catch (e) {
+        console.error('Error refreshing users.csv on disk:', e.message);
+    } finally {
+        setTimeout(() => {
+            if (csvWatcherHandle && typeof csvWatcherHandle.setInternalWriting === 'function') {
+                csvWatcherHandle.setInternalWriting(false);
+            }
+        }, 1200);
+    }
+}
 // Routes
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'GKAttendance API is running' });
 });
+
+const SESSION_LIMIT_HOURS = 12;
+
+// Inserts an INCOMPLETE row for every user whose latest log is a LOGIN
+// older than the limit. Pass a userId to check just one person.
+async function closeStaleSessions(userId = null) {
+    const [result] = await promisePool.query(`
+        INSERT INTO Logging (user_id, status, date_logged)
+        SELECT l.user_id, 'INCOMPLETE',
+               DATE_ADD(l.date_logged, INTERVAL ${SESSION_LIMIT_HOURS} HOUR)
+        FROM Logging l
+        JOIN (
+            SELECT user_id, MAX(log_id) AS last_id
+            FROM Logging
+            GROUP BY user_id
+        ) m ON l.log_id = m.last_id
+        WHERE l.status = 'LOGIN'
+          AND l.date_logged <= DATE_SUB(NOW(), INTERVAL ${SESSION_LIMIT_HOURS} HOUR)
+          ${userId ? 'AND l.user_id = ?' : ''}
+    `, userId ? [userId] : []);
+    return result.affectedRows;
+}
+
+
 
 // Get all scan logs for the admin dashboard
 app.get('/api/logs', async (req, res) => {
@@ -561,6 +608,7 @@ app.get('/api/user/:id', async (req, res) => {
                 p.role_id,
                 p.created_at,
                 p.unique_id,
+                p.must_change_password,
                 r.role_name,
                 gl.lab_code,
                 gl.lab_name,
@@ -601,6 +649,7 @@ app.get('/api/user/:id/logs', async (req, res) => {
             SELECT 
                 l.log_id,
                 l.date_logged,
+                l.status,
                 l.user_id
             FROM Logging l
             WHERE l.user_id = ?
@@ -707,6 +756,7 @@ app.post('/api/user/login', async (req, res) => {
                 p.password,
                 p.unique_id,
                 p.created_at,
+                p.must_change_password,
                 r.role_name,
                 r.role_id,
                 gl.lab_name,
@@ -729,13 +779,18 @@ app.post('/api/user/login', async (req, res) => {
             const { password: _, ...safeUser } = user;
 
             const isAdmin = user.role_name === 'Admin' || user.role_id === 1;
+            const mustChange = user.must_change_password == 1;
 
             res.status(200).json({
                 success: true,
-                message: 'Login successful',
+                message: mustChange ? 'Login successful. Please change your default password.' : 'Login successful',
                 token: 'mock-jwt-token-' + Date.now(),
                 role: isAdmin ? 'admin' : 'user',
-                user: safeUser
+                must_change_password: mustChange,
+                user: {
+                    ...safeUser,
+                    must_change_password: mustChange
+                }
             });
         } else {
             res.status(401).json({
@@ -748,6 +803,61 @@ app.post('/api/user/login', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Internal server error'
+        });
+    }
+});
+
+// User Change Password (for forced change on first login or profile settings)
+app.post('/api/user/change-password', async (req, res) => {
+    const { user_id, current_password, new_password } = req.body;
+
+    if (!user_id || !new_password) {
+        return res.status(400).json({
+            success: false,
+            message: 'User ID and new password are required'
+        });
+    }
+
+    if (new_password.length < 6) {
+        return res.status(400).json({
+            success: false,
+            message: 'New password must be at least 6 characters long'
+        });
+    }
+
+    try {
+        const [rows] = await promisePool.query('SELECT * FROM Person WHERE user_id = ?', [user_id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const user = rows[0];
+
+        // If current password provided, verify it; if normal change (not forced), require it
+        if (current_password) {
+            const isMatch = await comparePassword(current_password, user.password);
+            if (!isMatch) {
+                return res.status(400).json({ success: false, message: 'Current password does not match' });
+            }
+        } else if (user.must_change_password === 0) {
+            return res.status(400).json({ success: false, message: 'Current password is required' });
+        }
+
+        const hashedPassword = await hashPassword(new_password);
+        await promisePool.query(
+            'UPDATE Person SET password = ?, must_change_password = 0 WHERE user_id = ?',
+            [hashedPassword, user_id]
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Password updated successfully! You can now use your account.'
+        });
+    } catch (error) {
+        console.error('Error changing password:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating password'
         });
     }
 });
@@ -872,6 +982,10 @@ app.post('/api/logs', async (req, res) => {
 
         const internalUserId = userResults[0].user_id;
 
+// Expire a stale session first, so this tap becomes a fresh LOGIN
+        const closed = await closeStaleSessions(internalUserId);
+
+
         // STEP 2: Check the last log to toggle LOGIN <-> LOGOUT
         const [lastLog] = await promisePool.query(
             'SELECT status FROM Logging WHERE user_id = ? ORDER BY date_logged DESC LIMIT 1',
@@ -901,6 +1015,7 @@ app.post('/api/logs', async (req, res) => {
             success: true,
             message: 'Scan logged successfully!',
             status: newStatus,
+            previousSessionIncomplete: closed > 0,
             user: personRows[0] || null
         });
 
@@ -974,6 +1089,8 @@ app.post('/api/persons', async (req, res) => {
         // Commit transaction
         await connection.commit();
         connection.release();
+
+        refreshCsvOnDisk();
 
         res.status(201).json({
             success: true,
@@ -1067,6 +1184,8 @@ app.put('/api/persons/:id', async (req, res) => {
             [full_name, username, email, lab_id, role_id, id]
         );
 
+        refreshCsvOnDisk();
+
         res.status(200).json({
             success: true,
             message: 'Person updated successfully'
@@ -1109,6 +1228,7 @@ app.delete('/api/persons/:id', async (req, res) => {
         }
 
         await conn.commit();
+        refreshCsvOnDisk();
         res.status(200).json({ success: true, message: 'User removed successfully' });
     } catch (error) {
         await conn.rollback();
@@ -1148,6 +1268,117 @@ app.get('/api/roles', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error fetching roles'
+        });
+    }
+});
+
+// ==========================================
+// CSV USER MANAGEMENT & SYNC ROUTES
+// ==========================================
+
+// Export registered users as CSV download
+app.get('/api/persons/export-csv', async (req, res) => {
+    try {
+        const persons = await csvSync.getPersonsList(promisePool);
+        const csvContent = csvSync.generateCSV(persons);
+
+        // Keep local users.csv file synchronized
+        refreshCsvOnDisk();
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
+        res.status(200).send(csvContent);
+    } catch (error) {
+        console.error('Error exporting users CSV:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error generating users CSV'
+        });
+    }
+});
+
+// Download sample template CSV
+app.get('/api/persons/csv-template', (req, res) => {
+    const templateContent = csvSync.generateTemplateCSV();
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="users_template.csv"');
+    res.status(200).send(templateContent);
+});
+
+// Synchronize database with the local users.csv file on disk
+app.post('/api/persons/sync-file', async (req, res) => {
+    try {
+        if (!fs.existsSync(CSV_FILE_PATH)) {
+            // If users.csv does not exist on disk, create it from the DB
+            await csvSync.exportUsersToCSVFile(promisePool, CSV_FILE_PATH);
+            return res.status(200).json({
+                success: true,
+                message: 'users.csv was not found on disk, so a new file has been created with existing registered users.',
+                created: 0,
+                updated: 0,
+                skipped: 0,
+                totalRows: 0,
+                errors: []
+            });
+        }
+
+        const result = await csvSync.syncFromFile(CSV_FILE_PATH, promisePool, hashPassword);
+        await refreshCsvOnDisk();
+
+        res.status(200).json({
+            success: true,
+            message: `Successfully synced from users.csv (${result.created} added, ${result.updated} updated).`,
+            ...result
+        });
+    } catch (error) {
+        console.error('Error syncing from local CSV file:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Error syncing from users.csv'
+        });
+    }
+});
+
+// Import users from uploaded CSV data (string or parsed)
+app.post('/api/persons/import-csv', async (req, res) => {
+    try {
+        let csvContent = '';
+        if (typeof req.body === 'string') {
+            csvContent = req.body;
+        } else if (req.body && typeof req.body.csv === 'string') {
+            csvContent = req.body.csv;
+        }
+
+        if (!csvContent || csvContent.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No CSV content provided in request body'
+            });
+        }
+
+        const parsedRows = csvSync.parseCSV(csvContent);
+        if (parsedRows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'CSV contains no data rows or unrecognized column headers'
+            });
+        }
+
+        const result = await csvSync.syncUsersFromRows(parsedRows, promisePool, hashPassword);
+
+        // Update users.csv on disk with latest data
+        await refreshCsvOnDisk();
+
+        res.status(200).json({
+            success: true,
+            message: `Successfully processed CSV: ${result.created} new user(s) registered, ${result.updated} user(s) updated.`,
+            ...result
+        });
+    } catch (error) {
+        console.error('Error importing CSV:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Error processing CSV'
         });
     }
 });
@@ -1549,8 +1780,33 @@ app.post('/api/admin/demote/:id', async (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`GKAttendance Backend running on http://localhost:${PORT}`);
+
+    const sweep = () => closeStaleSessions()
+        .then(n => { if (n) console.log(`Marked ${n} session(s) INCOMPLETE`); })
+        .catch(err => console.error('Stale session sweep failed:', err));
+
+    sweep();                              // on startup
+    setInterval(sweep, 5 * 60 * 1000);    // every 5 minutes
+
+    // Initialize users.csv if missing and start file watcher
+    try {
+        if (!fs.existsSync(CSV_FILE_PATH)) {
+            console.log(`[CSV] users.csv not found at ${CSV_FILE_PATH}. Generating from registered users...`);
+            await csvSync.exportUsersToCSVFile(promisePool, CSV_FILE_PATH);
+            console.log(`[CSV] Created ${CSV_FILE_PATH} with current users.`);
+        } else {
+            console.log(`[CSV] Found users.csv at ${CSV_FILE_PATH}.`);
+        }
+
+        csvWatcherHandle = csvSync.startCsvWatcher(CSV_FILE_PATH, promisePool, hashPassword);
+        if (csvWatcherHandle) {
+            console.log(`[CSV Watcher] Watching ${path.basename(CSV_FILE_PATH)} for edits. Changes will automatically update registered users in the database.`);
+        }
+    } catch (err) {
+        console.error('[CSV Watcher Init Error]:', err.message);
+    }
 });
 
 //DEBIAN SMTP SLOW

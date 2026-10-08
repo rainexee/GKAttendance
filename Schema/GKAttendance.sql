@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS Person(
      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 	reset_token VARCHAR(255),
     reset_token_expires DATETIME,
+    must_change_password BOOLEAN DEFAULT 0,
     FOREIGN KEY (lab_id) REFERENCES GKLab(lab_id),
     FOREIGN KEY (role_id) references Role(role_id),
     FOREIGN KEY (unique_id) references ID(unique_id)
@@ -132,3 +133,14 @@ CREATE TABLE IF NOT EXISTS LabSchedule (
     FOREIGN KEY (user_id) REFERENCES Person(user_id) ON DELETE CASCADE,
     FOREIGN KEY (lab_id) REFERENCES GKLab(lab_id) ON DELETE CASCADE
 );
+
+ALTER TABLE Logging
+MODIFY status ENUM(
+    'LOGIN',
+    'LOGOUT',
+    'INCOMPLETE',
+    'DENIED_EARLY',
+    'DENIED_LATE',
+    'DENIED_DUPLICATE',
+    'DENIED_AFTER_HOURS'
+) NOT NULL;

@@ -707,6 +707,11 @@
                         <!-- removing Card UID breaks everything, will fix later what the fuck-->
                         <p><strong>Member Since:</strong> <span id="profileSince">—</span></p>
                     </div>
+                    <div style="margin-top: 1.5rem; text-align: center;">
+                        <button type="button" id="openChangePasswordBtn" class="add-event-btn" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; cursor: pointer; padding: 10px 22px; border-radius: 40px; font-weight: 600; font-size: 0.95rem; transition: all 0.2s;">
+                            <i class="fas fa-key"></i> Change Password
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -727,6 +732,38 @@
         </div>
     </div>
 
+    <!-- Change Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content" style="max-width: 440px;">
+            <h3 id="passwordModalTitle"><i class="fas fa-key"></i> Change Password</h3>
+            <p id="passwordModalNotice" style="color: #f87171; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 10px 14px; font-size: 0.88rem; margin-bottom: 1.2rem; line-height: 1.4; display: none;">
+                <i class="fas fa-exclamation-triangle"></i> <strong>Action Required:</strong> You are currently using a default password. Please choose a new password before proceeding.
+            </p>
+            <div id="passwordErrorMsg" style="color: #f87171; font-size: 0.85rem; margin-bottom: 0.8rem; display: none;"></div>
+            <div id="passwordSuccessMsg" style="color: #4ade80; font-size: 0.85rem; margin-bottom: 0.8rem; display: none;"></div>
+
+            <div style="margin-bottom: 1rem;">
+                <label for="currentPasswordInput" style="display:block; margin-bottom: 6px; font-size: 0.85rem; color: #94a3b8; font-weight: 500;">Current / Default Password</label>
+                <input type="password" id="currentPasswordInput" placeholder="Enter current password" autocomplete="current-password">
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label for="newPasswordInput" style="display:block; margin-bottom: 6px; font-size: 0.85rem; color: #94a3b8; font-weight: 500;">New Password</label>
+                <input type="password" id="newPasswordInput" placeholder="Min. 6 characters" required autocomplete="new-password">
+            </div>
+
+            <div style="margin-bottom: 1.2rem;">
+                <label for="confirmPasswordInput" style="display:block; margin-bottom: 6px; font-size: 0.85rem; color: #94a3b8; font-weight: 500;">Confirm New Password</label>
+                <input type="password" id="confirmPasswordInput" placeholder="Re-type new password" required autocomplete="new-password">
+            </div>
+
+            <div class="modal-buttons">
+                <button type="button" id="cancelPasswordBtn" onclick="closePasswordModal()">Cancel</button>
+                <button type="button" id="savePasswordBtn" onclick="submitPasswordChange()">Update Password</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // API Base URL
         const API_BASE_URL = window.location.origin;
@@ -736,6 +773,126 @@
         let userAttendance = [];
         let calendarEvents = [];
         let calendar = null;
+
+        let isForcedPasswordChange = false;
+
+        function openPasswordModal(forced = false) {
+            isForcedPasswordChange = forced;
+            const modal = document.getElementById('passwordModal');
+            const notice = document.getElementById('passwordModalNotice');
+            const cancelBtn = document.getElementById('cancelPasswordBtn');
+            const title = document.getElementById('passwordModalTitle');
+            const errorMsg = document.getElementById('passwordErrorMsg');
+            const successMsg = document.getElementById('passwordSuccessMsg');
+
+            errorMsg.style.display = 'none';
+            errorMsg.innerText = '';
+            successMsg.style.display = 'none';
+            successMsg.innerText = '';
+            document.getElementById('currentPasswordInput').value = '';
+            document.getElementById('newPasswordInput').value = '';
+            document.getElementById('confirmPasswordInput').value = '';
+
+            if (forced) {
+                notice.style.display = 'block';
+                cancelBtn.style.display = 'none';
+                title.innerHTML = '<i class="fas fa-shield-alt"></i> Set Your Password';
+            } else {
+                notice.style.display = 'none';
+                cancelBtn.style.display = 'inline-block';
+                title.innerHTML = '<i class="fas fa-key"></i> Change Password';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closePasswordModal() {
+            if (isForcedPasswordChange) {
+                return; // User must change password before closing
+            }
+            document.getElementById('passwordModal').classList.remove('active');
+        }
+
+        async function submitPasswordChange() {
+            const current_password = document.getElementById('currentPasswordInput').value;
+            const new_password = document.getElementById('newPasswordInput').value;
+            const confirm_password = document.getElementById('confirmPasswordInput').value;
+            const errorMsg = document.getElementById('passwordErrorMsg');
+            const successMsg = document.getElementById('passwordSuccessMsg');
+            const saveBtn = document.getElementById('savePasswordBtn');
+
+            errorMsg.style.display = 'none';
+            errorMsg.innerText = '';
+            successMsg.style.display = 'none';
+            successMsg.innerText = '';
+
+            if (!isForcedPasswordChange && !current_password) {
+                errorMsg.innerText = 'Please enter your current password.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            if (!new_password) {
+                errorMsg.innerText = 'Please enter a new password.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            if (new_password.length < 6) {
+                errorMsg.innerText = 'New password must be at least 6 characters long.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            if (new_password !== confirm_password) {
+                errorMsg.innerText = 'New passwords do not match.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            saveBtn.disabled = true;
+            saveBtn.innerText = 'Updating...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/user/change-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: currentUser?.user_id,
+                        current_password: current_password || undefined,
+                        new_password: new_password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successMsg.innerText = data.message || 'Password updated successfully!';
+                    successMsg.style.display = 'block';
+
+                    if (currentUser) {
+                        currentUser.must_change_password = 0;
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    }
+                    localStorage.setItem('mustChangePassword', 'false');
+                    isForcedPasswordChange = false;
+
+                    setTimeout(() => {
+                        document.getElementById('passwordModal').classList.remove('active');
+                    }, 1200);
+                } else {
+                    errorMsg.innerText = data.message || 'Failed to update password.';
+                    errorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Password change error:', err);
+                errorMsg.innerText = 'Network error while updating password.';
+                errorMsg.style.display = 'block';
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerText = 'Update Password';
+            }
+        }
 
         // Check authentication and get user role
         async function checkAuth() {
@@ -750,6 +907,12 @@
             if (userStr) {
                 currentUser = JSON.parse(userStr);
                 updateUserDisplay();
+
+                const mustChange = currentUser?.must_change_password == 1 || localStorage.getItem('mustChangePassword') === 'true';
+                if (mustChange) {
+                    openPasswordModal(true);
+                }
+
                 return true;
             }
 
@@ -766,7 +929,9 @@
                 document.getElementById('profileUsername').innerText = currentUser.username || '—';
                 document.getElementById('profileRole').innerText = currentUser.role_name || '—';
                 document.getElementById('profileLab').innerText = currentUser.lab_name || '—';
-                document.getElementById('profileUID').innerText = currentUser.unique_id || '—';
+
+                const cardDisplay = (!currentUser.unique_id || currentUser.unique_id.startsWith('PENDING_')) ? 'Unassigned' : currentUser.unique_id;
+                document.getElementById('profileUID').innerText = cardDisplay;
                 document.getElementById('profileSince').innerText = currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString() : '—';
 
                 const initial = currentUser.full_name ? currentUser.full_name.charAt(0).toUpperCase() : '👤';
@@ -822,8 +987,23 @@
                 return '<span class="badge-login"><i class="fas fa-circle"></i> Inside Lab</span>';
             } else if (status === 'LOGOUT') {
                 return '<span class="badge-logout"><i class="fas fa-door-open"></i> Logged Out</span>';
+            } else if (status === 'INCOMPLETE') {
+                return '<span class="badge-denied"><i class="fas fa-exclamation-triangle"></i> Incomplete</span>';
             } else if (status === 'DENIED_AFTER_HOURS') {
                 return '<span class="badge-denied"><i class="fas fa-clock"></i> After Hours</span>';
+            }
+            return '<span class="badge-card">No record</span>';
+        }
+
+        function getLogBadge(status) {
+            if (status === 'LOGIN') {
+                return '<span class="badge-login"><i class="fas fa-sign-in-alt"></i> Tapped In</span>';
+            } else if (status === 'LOGOUT') {
+                return '<span class="badge-logout"><i class="fas fa-sign-out-alt"></i> Tapped Out</span>';
+            } else if (status === 'INCOMPLETE') {
+                return '<span class="badge-denied"><i class="fas fa-exclamation-triangle"></i> Incomplete</span>';
+            } else if (status && status.startsWith('DENIED')) {
+                return '<span class="badge-denied"><i class="fas fa-ban"></i> Denied</span>';
             }
             return '<span class="badge-card">No record</span>';
         }
@@ -842,7 +1022,7 @@
                 <tr>
                     <td>${escapeHtml(String(log.log_id || ''))}</td>
                     <td>${formatDate(log.date_logged)}</td>
-                    <td>${getStatusBadge(log.status)}</td>
+                    <td>${getLogBadge(log.status)}</td>
                 </tr>
             `).join('');
         }
@@ -861,7 +1041,7 @@
             tbody.innerHTML = recentLogs.map(log => `
                 <tr>
                     <td>${formatDate(log.date_logged)}</td>
-                    <td>${getStatusBadge(log.status)}</td>
+                    <td>${getLogBadge(log.status)}</td>
                 </tr>
             `).join('');
         }
@@ -1053,6 +1233,19 @@
             document.getElementById('eventModal').addEventListener('click', (e) => {
                 if (e.target === document.getElementById('eventModal')) {
                     closeModal();
+                }
+            });
+
+            // Change password button (profile panel)
+            const openChangePwBtn = document.getElementById('openChangePasswordBtn');
+            if (openChangePwBtn) {
+                openChangePwBtn.addEventListener('click', () => openPasswordModal(false));
+            }
+
+            // Close password modal on outside click (only if not forced)
+            document.getElementById('passwordModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('passwordModal')) {
+                    closePasswordModal();
                 }
             });
 

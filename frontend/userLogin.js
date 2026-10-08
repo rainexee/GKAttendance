@@ -31,8 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('userToken', data.token);
                 localStorage.setItem('userRole', data.role || 'user');
                 localStorage.setItem('currentUser', JSON.stringify(data.user));
+                localStorage.setItem('mustChangePassword', data.must_change_password ? 'true' : 'false');
 
-                showMessage('Login successful! Redirecting...', 'success');
+                showMessage(data.must_change_password ? 'Login successful! Please update your default password...' : 'Login successful! Redirecting...', 'success');
 
                 setTimeout(() => {
                     window.location.href = '/userdashboard';

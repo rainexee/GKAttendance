@@ -58,9 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('userToken', data.token);
                 localStorage.setItem('userRole', data.role || 'user');
                 localStorage.setItem('currentUser', JSON.stringify(data.user));
+                localStorage.setItem('mustChangePassword', data.must_change_password ? 'true' : 'false');
                 
                 messageDiv.className = 'message success';
-                messageDiv.innerHTML = '<i class="fas fa-check-circle"></i> Login successful! Redirecting...';
+                messageDiv.innerHTML = data.must_change_password 
+                    ? '<i class="fas fa-check-circle"></i> Login successful! Please update your default password...'
+                    : '<i class="fas fa-check-circle"></i> Login successful! Redirecting...';
                 messageDiv.classList.remove('hidden');
                 
                 setTimeout(() => {

@@ -778,13 +778,24 @@
 
             <div id="usersPanel" class="section-panel active-section">
                 <div class="data-panel">
-                    <div class="panel-header">
+                    <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
                         <h3><i class="fas fa-address-card"></i> People Who Signed Up</h3>
-                        <div class="search-box">
-                            <input type="text" id="userSearch" placeholder="Search by name, email, card..."
+                        <div class="search-box" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                            <input type="text" id="userSearch" placeholder="Search by name, email, card, lab..."
                                 autocomplete="off">
-                            <button class="btn-export" id="exportUsersBtn"><i class="fas fa-download"></i> Export Users
-                                CSV</button>
+                            <button class="btn-export" id="syncCsvBtn" title="Sync registered users with server's users.csv file" style="background: linear-gradient(135deg, #0284c7, #0369a1);">
+                                <i class="fas fa-sync-alt"></i> Sync users.csv
+                            </button>
+                            <label class="btn-export" for="importCsvInput" style="cursor: pointer; margin-bottom: 0; background: linear-gradient(135deg, #8b5cf6, #6d28d9); display: inline-flex; align-items: center;" title="Upload & update users from any CSV file">
+                                <i class="fas fa-file-upload"></i> Import CSV
+                            </label>
+                            <input type="file" id="importCsvInput" accept=".csv,text/csv" style="display: none;">
+                            <button class="btn-export" id="exportUsersBtn" title="Download current registered users list as CSV">
+                                <i class="fas fa-download"></i> Export Users CSV
+                            </button>
+                            <button class="btn-export" id="templateCsvBtn" title="Download sample CSV format template" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);">
+                                <i class="fas fa-file-csv"></i> Template
+                            </button>
                         </div>
                     </div>
                     <div class="table-wrapper">
@@ -795,6 +806,8 @@
                                     <th>DLSU ID</th>
                                     <th>Full Name</th>
                                     <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Lab Group</th>
                                     <th>Card UID</th>
                                     <th>Registered On</th>
                                     <th>Actions</th>
@@ -802,7 +815,7 @@
                             </thead>
                             <tbody id="usersTableBody">
                                 <tr class="empty-row">
-                                    <td colspan="6">Loading registered users...</td>
+                                    <td colspan="9">Loading registered users...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1000,6 +1013,113 @@
                     btn.disabled = false;
                 }
             });
+
+            // User search filter
+            const userSearchInput = document.getElementById('userSearch');
+            if (userSearchInput) {
+                userSearchInput.addEventListener('input', function () {
+                    renderUsersTable(this.value);
+                });
+            }
+
+            // Export Users CSV
+            const exportUsersBtn = document.getElementById('exportUsersBtn');
+            if (exportUsersBtn) {
+                exportUsersBtn.addEventListener('click', () => {
+                    window.location.href = `${API_BASE_URL}/api/persons/export-csv`;
+                });
+            }
+
+            // Template CSV Download
+            const templateCsvBtn = document.getElementById('templateCsvBtn');
+            if (templateCsvBtn) {
+                templateCsvBtn.addEventListener('click', () => {
+                    window.location.href = `${API_BASE_URL}/api/persons/csv-template`;
+                });
+            }
+
+            // Sync from server users.csv file
+            const syncCsvBtn = document.getElementById('syncCsvBtn');
+            if (syncCsvBtn) {
+                syncCsvBtn.addEventListener('click', async () => {
+                    const originalText = syncCsvBtn.innerHTML;
+                    syncCsvBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+                    syncCsvBtn.disabled = true;
+
+                    try {
+                        const res = await fetch(`${API_BASE_URL}/api/persons/sync-file`, { method: 'POST' });
+                        const data = await res.json();
+                        if (data.success) {
+                            let msg = `Sync with users.csv completed!\n\n• New users registered: ${data.created || 0}\n• Existing users updated: ${data.updated || 0}`;
+                            if (data.errors && data.errors.length > 0) {
+                                msg += `\n\n• Issues encountered (${data.errors.length}):\n` + data.errors.map(e => `  - Row ${e.row}: ${e.error}`).join('\n');
+                            }
+                            alert(msg);
+                            await renderUsersTable();
+                            await renderRolesTable();
+                            await updateStats();
+                        } else {
+                            alert('Sync failed: ' + (data.message || 'Unknown error'));
+                        }
+                    } catch (err) {
+                        console.error('Error syncing CSV file:', err);
+                        alert('Network error while syncing users.csv: ' + err.message);
+                    } finally {
+                        syncCsvBtn.innerHTML = originalText;
+                        syncCsvBtn.disabled = false;
+                    }
+                });
+            }
+
+            // Import any CSV file via browser upload
+            const importCsvInput = document.getElementById('importCsvInput');
+            if (importCsvInput) {
+                importCsvInput.addEventListener('change', async function () {
+                    const file = this.files[0];
+                    if (!file) return;
+
+                    if (!file.name.toLowerCase().endsWith('.csv')) {
+                        alert('Please choose a valid .csv file.');
+                        this.value = '';
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = async (evt) => {
+                        const csvContent = evt.target.result;
+                        try {
+                            const res = await fetch(`${API_BASE_URL}/api/persons/import-csv`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ csv: csvContent })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                                let msg = `CSV Import Successful!\n\n• Processed: ${data.totalRows || 0} rows\n• New users registered: ${data.created || 0}\n• Existing users updated: ${data.updated || 0}`;
+                                if (data.errors && data.errors.length > 0) {
+                                    msg += `\n\n• Issues encountered (${data.errors.length}):\n` + data.errors.map(e => `  - Row ${e.row}: ${e.error}`).join('\n');
+                                }
+                                alert(msg);
+                                await renderUsersTable();
+                                await renderRolesTable();
+                                await updateStats();
+                            } else {
+                                alert('Import failed: ' + (data.message || 'Unknown error'));
+                            }
+                        } catch (err) {
+                            console.error('Error importing CSV:', err);
+                            alert('Network error during CSV upload: ' + err.message);
+                        } finally {
+                            importCsvInput.value = '';
+                        }
+                    };
+                    reader.onerror = () => {
+                        alert('Failed to read selected CSV file.');
+                        importCsvInput.value = '';
+                    };
+                    reader.readAsText(file);
+                });
+            }
         });
 
         document.getElementById('logSearch').addEventListener('input', function () {
@@ -1084,6 +1204,24 @@
                                 const nextEvt = userEvents[j];
                                 const nextTime = new Date(nextEvt.date_logged);
                                 const nextDateStr = getLocalDateString(nextTime);
+
+                                if (nextEvt.status === 'INCOMPLETE') {
+                                    sessions.push({
+                                        userId: current.user_id,
+                                        fullName: current.full_name || 'Unknown',
+                                        email: current.email || 'N/A',
+                                        uniqueId: current.unique_id || 'N/A',
+                                        roleName: current.role_name || 'N/A',
+                                        labName: current.lab_name || 'N/A',
+                                        loginTime,
+                                        logoutTime: null,
+                                        durationHrs: 0,
+                                        incomplete: true
+                                    });
+                                    paired = true;
+                                    idx = j;
+                                    break;
+                                }
                                 
                                 if (nextDateStr !== loginDateStr) {
                                     // Crossed into a different day. Cannot pair with this login.
@@ -1163,11 +1301,13 @@
                             roleName: s.roleName,
                             labName: s.labName,
                             totalHours: 0,
+                             incompleteCount: 0,  
                             attendedDays: new Set()
                         };
                     }
                     overallStats[key].totalHours += s.durationHrs;
                     overallStats[key].attendedDays.add(getLocalDateString(s.loginTime));
+                    if (s.incomplete) overallStats[key].incompleteCount++;
                 });
 
                 // 5. Group sessions and raw logs by date (local date string of the log timestamp)
@@ -1201,7 +1341,7 @@
                     ['Generated on: ' + new Date().toLocaleString()],
                     ['Export Date Range: ' + (logs.length > 0 ? getLocalDateString(chronologicalLogs[0].date_logged) : 'N/A') + ' to ' + (logs.length > 0 ? getLocalDateString(chronologicalLogs[chronologicalLogs.length - 1].date_logged) : 'N/A')],
                     [], // Empty separator
-                    ['Full Name', 'Email', 'Role', 'Lab Group', 'Total Days Attended', 'Total Hours in Lab']
+                    ['Full Name', 'Email', 'Role', 'Lab Group', 'Total Days Attended', 'Total Hours in Lab', 'Incomplete Sessions']
                 ];
 
                 Object.values(overallStats)
@@ -1213,7 +1353,8 @@
                             u.roleName,
                             u.labName,
                             u.attendedDays.size,
-                            parseFloat(u.totalHours.toFixed(2))
+                            parseFloat(u.totalHours.toFixed(2)),
+                            u.incompleteCount
                         ]);
                     });
 
@@ -1224,7 +1365,8 @@
                     { wch: 15 }, // Role
                     { wch: 25 }, // Lab Group
                     { wch: 20 }, // Total Days Attended
-                    { wch: 20 }  // Total Hours in Lab
+                    { wch: 20 },  // Total Hours in Lab
+                    { wch: 20 }  // Incomplete Sessions
                 ];
                 XLSX.utils.book_append_sheet(wb, wsOverview, 'Overview Summary');
 
@@ -1575,24 +1717,38 @@
             document.getElementById('todayLogsStat').innerText = stats.todayLogs || 0;
         }
 
-        async function renderUsersTable() {
+        async function renderUsersTable(filter = '') {
             const users = await fetchPersons();
             const tbody = document.getElementById('usersTableBody');
             if (!tbody) return;
 
-            if (users.length === 0) {
-                tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No registered users located.</td></tr>';
+            const term = (filter || '').toLowerCase().trim();
+            const filteredUsers = term ? users.filter(u => {
+                return (u.full_name && u.full_name.toLowerCase().includes(term)) ||
+                       (u.email && u.email.toLowerCase().includes(term)) ||
+                       (u.username && u.username.toLowerCase().includes(term)) ||
+                       (String(u.dlsu_idnumber || '').toLowerCase().includes(term)) ||
+                       (String(u.unique_id || '').toLowerCase().includes(term)) ||
+                       (u.role_name && u.role_name.toLowerCase().includes(term)) ||
+                       (u.lab_name && u.lab_name.toLowerCase().includes(term)) ||
+                       (u.lab_code && u.lab_code.toLowerCase().includes(term));
+            }) : users;
+
+            if (filteredUsers.length === 0) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="9">' + (term ? 'No registered users match your search.' : 'No registered users located.') + '</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = users.map(user => `
+            tbody.innerHTML = filteredUsers.map(user => `
                 <tr>
                     <td>${escapeHtml(String(user.user_id || ''))}</td>
                     <td><strong>${escapeHtml(String(user.dlsu_idnumber || 'N/A'))}</strong></td>
                     <td><strong>${escapeHtml(user.full_name || 'N/A')}</strong></td>
                     <td>${escapeHtml(user.email || 'N/A')}</td>
+                    <td><span class="badge-card" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);">${escapeHtml(user.role_name || 'N/A')}</span></td>
+                    <td><span class="badge-card" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">${escapeHtml(user.lab_code || user.lab_name || 'N/A')}</span></td>
                     <td><span class="badge-card">${escapeHtml(String(user.unique_id || 'UID-TEMP'))}</span></td>
-                    <td>Now</td>
+                    <td>${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Active'}</td>
                     <td>
                         <button class="btn-export btn-delete-user"
                                 data-id="${escapeHtml(String(user.user_id))}"
@@ -1825,6 +1981,9 @@
 
                         scanStatus.textContent =
                             `✓ ${data.status} recorded for ${data.user.full_name}`;
+                            if (data.previousSessionIncomplete) {
+                             scanStatus.textContent += ' (previous session was marked incomplete)';
+                            }
 
                         if (data.user) {
                             const u = data.user;
@@ -1973,7 +2132,9 @@
 
             tbody.innerHTML = rows.map(log => {
                 const isLogin = log.status === 'LOGIN';
-                const statusColor = isLogin ? '#34d399' : '#f87171';
+              const statusColor = log.status === 'LOGIN' ? '#34d399'
+                  : log.status === 'INCOMPLETE' ? '#fbbf24'
+                  : '#f87171';
                 const date = log.date_logged ? new Date(log.date_logged).toLocaleString() : 'N/A';
                 return `
             <tr>
