@@ -1,0 +1,55 @@
+# Update package list
+sudo apt update && sudo apt upgrade -y
+
+# Install Git, Curl, and MariaDB Server
+sudo apt install -y git curl mariadb-server
+
+# Install Node.js LTS (v20)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verify versions
+node -v
+npm -v
+git --version
+
+
+# Ensure MariaDB is running and enabled on boot
+sudo systemctl enable --now mariadb
+
+# Open the MariaDB shell
+sudo mariadb
+
+
+CREATE DATABASE IF NOT EXISTS GKAttendance;
+
+-- Create application users matching your project settings
+CREATE USER IF NOT EXISTS 'GKAttendance_LowPriority'@'localhost' IDENTIFIED BY 'n0root4u!';
+CREATE USER IF NOT EXISTS 'GKAttendance_SuperAdmin'@'localhost' IDENTIFIED BY 'f4llr00taccess!';
+
+GRANT ALL PRIVILEGES ON GKAttendance.* TO 'GKAttendance_SuperAdmin'@'localhost';
+GRANT ALL PRIVILEGES ON GKAttendance.* TO 'GKAttendance_LowPriority'@'localhost';
+FLUSH PRIVILEGES;
+
+EXIT;
+
+
+
+
+sudo mariadb -u root GKAttendance < Schema/GKAttendance.sql
+sudo mariadb -u root GKAttendance < Schema/events_migration.sql
+
+
+nano .env
+
+cd backend
+npm install
+
+# 1. Install PM2 globally
+sudo npm install -g pm2
+
+# 2. Start the server (make sure you are in the GKAttendance/backend folder)
+pm2 start server.js --name "gkattendance"
+
+# 3. Configure PM2 to start automatically when the Debian server reboots
+pm2 startup
