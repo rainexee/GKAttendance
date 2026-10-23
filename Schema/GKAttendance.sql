@@ -82,7 +82,7 @@ FLUSH PRIVILEGES;
 
 SET SQL_SAFE_UPDATES = 0;
 DELETE FROM ID where unique_id = 2059985069;
-INSERT INTO GKLab (lab_id, lab_code, lab_name) VALUES
+INSERT IGNORE INTO GKLab (lab_id, lab_code, lab_name) VALUES
 (1, 'CeLT', 'Center for Language Technologies'),
 (2, 'CeHCI', 'Center for Human-Computer Innovations'),
 (3, 'Cite4D', 'Center for ICT for Development'),
@@ -95,7 +95,7 @@ INSERT INTO GKLab (lab_id, lab_code, lab_name) VALUES
 (10, 'Bioinformatics Lab', 'Bioinformatics Lab');
 
 
-INSERT INTO Role(role_id, role_name) VALUES
+INSERT IGNORE INTO Role(role_id, role_name) VALUES
 (1, "Student"),
 (2, "Staff"),
 (3, "Researcher"),
