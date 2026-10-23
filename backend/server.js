@@ -2018,7 +2018,7 @@ app.post('/api/admin/demote/:id', async (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', async () => {
     console.log(`GKAttendance Backend running on http://localhost:${PORT}`);
 
     const sweep = () => closeStaleSessions()
