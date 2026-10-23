@@ -2383,6 +2383,75 @@
             });
 
             console.log('RFID / Barcode Scanner Ready');
+
+            // Auto-poll for remote ESP32 card taps so the tap screen updates live
+            let lastRemoteLogId = null;
+            setInterval(async () => {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/logs`);
+                    const data = await res.json();
+                    if (data.success && data.data && data.data.length > 0) {
+                        const latest = data.data[0];
+                        if (lastRemoteLogId === null) {
+                            lastRemoteLogId = latest.log_id;
+                        } else if (latest.log_id > lastRemoteLogId) {
+                            lastRemoteLogId = latest.log_id;
+                            
+                            // 1. Update counter stats (Today's Scans, Total Entries)
+                            if (typeof updateStats === 'function') updateStats();
+                            
+                            // 2. If viewing Card Scanner panel, display the scan result!
+                            const scanPanel = document.getElementById('scanPanel');
+                            if (scanPanel && scanPanel.classList.contains('active-section')) {
+                                const isLogin = latest.status === 'LOGIN';
+                                scanStatus.className = 'scan-status';
+                                scanStatus.style.display = 'block';
+                                scanStatus.style.background = isLogin ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
+                                scanStatus.style.color = isLogin ? '#34d399' : '#f87171';
+                                scanStatus.style.border = isLogin ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(239,68,68,0.3)';
+                                scanStatus.textContent = `? ${latest.status} recorded for ${latest.full_name || 'Cardholder'}`;
+                                
+                                userDetail.innerHTML = `
+                                    <h4>
+                                        <i class="fas fa-id-badge"></i>
+                                        ${escapeHtml(latest.full_name || 'Unknown')}
+                                    </h4>
+                                    <div class="detail-grid">
+                                        <div class="detail-item">
+                                            <span class="detail-label">Role</span>
+                                            <span class="detail-value">${escapeHtml(latest.role_name || 'N/A')}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Lab</span>
+                                            <span class="detail-value">${escapeHtml(latest.lab_name || 'N/A')}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Status Logged</span>
+                                            <span class="detail-value" style="color:${isLogin ? '#34d399' : '#f87171'};font-weight:700;">
+                                                ${latest.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                `;
+                                userDetail.classList.add('visible');
+                                
+                                setTimeout(() => {
+                                    scanStatus.style.display = 'none';
+                                }, 8000);
+                            }
+                            
+                            // 3. If viewing Logs panel, refresh the table
+                            const logsPanel = document.getElementById('logsPanel');
+                            if (logsPanel && logsPanel.classList.contains('active-section')) {
+                                logsData = data.data;
+                                renderLogsTable();
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // silent catch
+                }
+            }, 1500);
         }
         async function fetchLogs() {
             try {
