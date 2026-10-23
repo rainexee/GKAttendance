@@ -76,7 +76,7 @@ CREATE USER 'GKAttendance_SuperAdmin'@'localhost' IDENTIFIED BY 'f4llr00taccess!
 GRANT ALL PRIVILEGES ON GKAttendance.* TO 'GKAttendance_SuperAdmin'@'localhost';
 FLUSH PRIVILEGES;
 
-GRANT SELECT, INSERT, UPDATE ON GKAttendance.* TO 'public_lowprio'@'localhost';
+GRANT ALL PRIVILEGES ON GKAttendance.* TO 'GKAttendance_LowPriority'@'localhost';
 FLUSH PRIVILEGES;
 
 
