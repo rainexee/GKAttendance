@@ -1100,7 +1100,7 @@
         async function checkAuth() {
             const token = localStorage.getItem('userToken');
             if (!token) {
-                window.location.href = ${BASE_PATH}/login;
+                window.location.href = `${BASE_PATH}/login`;
                 return false;
             }
 
@@ -1678,7 +1678,7 @@
             localStorage.removeItem('currentUser');
             localStorage.removeItem('userRole');
 
-            window.location.href = ${BASE_PATH}/login;
+            window.location.href = `${BASE_PATH}/login`;
         }
 
         // Initialize dashboard

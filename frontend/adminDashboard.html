@@ -1052,13 +1052,13 @@
         let activeEventId = null;
 
         // Global structural dynamic view systems setup
-        document.addEventListener('DOMContentLoaded', () => {
-            initSidebarNavigation();
-            initInnerSubTabs();
-            updateStats();
-            renderUsersTable();
-            initRfidScanner();
-            renderRolesTable();
+        function initializeDashboardApp() {
+            try { initSidebarNavigation(); } catch (e) { console.error('Sidebar nav init error:', e); }
+            try { initInnerSubTabs(); } catch (e) { console.error('Inner subtabs init error:', e); }
+            try { updateStats(); } catch (e) { console.error('Stats init error:', e); }
+            try { renderUsersTable(); } catch (e) { console.error('Users table init error:', e); }
+            try { initRfidScanner(); } catch (e) { console.error('RFID scanner init error:', e); }
+            try { renderRolesTable(); } catch (e) { console.error('Roles table init error:', e); }
 
             document.getElementById('saveAssignedUsersBtn').addEventListener('click', async () => {
                 if (!activeEventId) {
@@ -1206,7 +1206,13 @@
                     reader.readAsText(file);
                 });
             }
-        });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeDashboardApp);
+        } else {
+            initializeDashboardApp();
+        }
 
         document.getElementById('logSearch').addEventListener('input', function () {
             renderLogsTable(this.value);
@@ -1895,7 +1901,7 @@
 
 
                 // 2. Redirect back to your login endpoint or static HTML landing page
-                window.location.href = ${BASE_PATH}/login; // Or whatever your routing path is
+                window.location.href = `${BASE_PATH}/login`; // Or whatever your routing path is
             });
         }
         // Target Selection Matrix generation function
