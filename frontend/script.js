@@ -1,3 +1,6 @@
+const BASE_PATH = window.location.pathname.startsWith('/attendance-tracker') ? '/attendance-tracker' : '';
+const API_BASE_URL = window.location.origin + BASE_PATH;
+
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('login-form');
     const usernameInput = document.getElementById('username');
@@ -22,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             // First try admin login
-            let response = await fetch('/api/admin/login', {
+            let response = await fetch(`${API_BASE_URL}/api/admin/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -39,13 +42,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 messageDiv.classList.remove('hidden');
                 
                 setTimeout(() => {
-                    window.location.href = '/dashboard';
+                    window.location.href = `${BASE_PATH}/dashboard`;
                 }, 1000);
                 return;
             }
             
             // If admin login fails, try user login
-            response = await fetch('/api/user/login', {
+            response = await fetch(`${API_BASE_URL}/api/user/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -67,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 messageDiv.classList.remove('hidden');
                 
                 setTimeout(() => {
-                    window.location.href = '/userdashboard';
+                    window.location.href = `${BASE_PATH}/userdashboard`;
                 }, 1000);
             } else {
                 // Both logins failed

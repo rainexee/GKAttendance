@@ -1,3 +1,6 @@
+const BASE_PATH = window.location.pathname.startsWith('/attendance-tracker') ? '/attendance-tracker' : '';
+const API_BASE_URL = window.location.origin + BASE_PATH;
+
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('user-login-form');
     const submitBtn = document.querySelector('.login-btn');
@@ -19,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         messageEl.classList.add('hidden');
 
         try {
-            const response = await fetch('/api/user/login', {
+            const response = await fetch(`${API_BASE_URL}/api/user/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -36,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showMessage(data.must_change_password ? 'Login successful! Please update your default password...' : 'Login successful! Redirecting...', 'success');
 
                 setTimeout(() => {
-                    window.location.href = '/userdashboard';
+                    window.location.href = `${BASE_PATH}/userdashboard`;
                 }, 1000);
             } else {
                 showMessage(data.message || 'Invalid username or password.', 'error');

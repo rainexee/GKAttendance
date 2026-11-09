@@ -1,3 +1,6 @@
+const BASE_PATH = window.location.pathname.startsWith('/attendance-tracker') ? '/attendance-tracker' : '';
+const API_BASE_URL = window.location.origin + BASE_PATH;
+
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('reset-password-form');
     const codeInput = document.getElementById('code');
@@ -27,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         verifyBtn.classList.add('loading');
 
         try {
-            const response = await fetch('/api/admin/verify-reset-code', {
+            const response = await fetch(`${API_BASE_URL}/api/admin/verify-reset-code`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -110,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetBtn.classList.add('loading');
 
         try {
-            const response = await fetch('/api/admin/resetpassword', {
+            const response = await fetch(`${API_BASE_URL}/api/admin/resetpassword`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -132,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 form.reset();
 
                 setTimeout(() => {
-                    window.location.href = '/login';
+                    window.location.href = `${BASE_PATH}/login`;
                 }, 2000);
             } else {
                 showMessage(

@@ -56,6 +56,20 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.text({ type: ['text/csv', 'text/plain'], limit: '10mb' }));
 
+// Support subpath mounting (e.g. cite4d.com/attendance-tracker or root /)
+app.use((req, res, next) => {
+    if (req.url === '/attendance-tracker') {
+        return res.redirect(301, '/attendance-tracker/');
+    }
+    if (req.url.startsWith('/attendance-tracker/')) {
+        req.baseUrlPrefix = '/attendance-tracker';
+        req.url = req.url.substring('/attendance-tracker'.length) || '/';
+    } else {
+        req.baseUrlPrefix = '';
+    }
+    next();
+});
+
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Helper to keep users.csv synchronized on disk without triggering watcher loop
@@ -131,7 +145,7 @@ app.get('/api/logs', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.redirect('/login');
+    res.redirect((req.baseUrlPrefix || '') + '/login');
 });
 
 app.get('/login', (req, res) => {

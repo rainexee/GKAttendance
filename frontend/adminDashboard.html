@@ -1042,7 +1042,8 @@
     </div>
 
     <script>
-        const API_BASE_URL = window.location.origin;
+        const BASE_PATH = window.location.pathname.startsWith('/attendance-tracker') ? '/attendance-tracker' : '';
+        const API_BASE_URL = window.location.origin + BASE_PATH;
 
         let personsData = [];
         let logsData = [];
@@ -1894,7 +1895,7 @@
 
 
                 // 2. Redirect back to your login endpoint or static HTML landing page
-                window.location.href = '/login.html'; // Or whatever your routing path is
+                window.location.href = ${BASE_PATH}/login; // Or whatever your routing path is
             });
         }
         // Target Selection Matrix generation function

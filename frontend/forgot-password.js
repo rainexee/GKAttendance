@@ -1,3 +1,6 @@
+const BASE_PATH = window.location.pathname.startsWith('/attendance-tracker') ? '/attendance-tracker' : '';
+const API_BASE_URL = window.location.origin + BASE_PATH;
+
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('forgot-password-form');
     const usernameOrEmailInput = document.getElementById('usernameOrEmail');
@@ -21,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // 1. Try the User route first
-            let response = await fetch('/api/user/forgotpassword', {
+            let response = await fetch(`${API_BASE_URL}/api/user/forgotpassword`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -33,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 2. If user is not found (404), dynamically try the Admin route instead
             if (response.status === 404) {
-                response = await fetch('/api/admin/forgotpassword', {
+                response = await fetch(`${API_BASE_URL}/api/admin/forgotpassword`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -49,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showMessage(data.message || 'Password reset code sent to your registered email.', 'success');
                 usernameOrEmailInput.value = '';
                 setTimeout(() => {
-                    window.location.href = '/reset-password';
+                    window.location.href = `${BASE_PATH}/reset-password`;
                 }, 2000);
             } else {
                 showMessage(data.message || 'No account found with that username or email.', 'error');

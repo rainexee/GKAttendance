@@ -967,7 +967,8 @@
 
     <script>
         // API Base URL
-        const API_BASE_URL = window.location.origin;
+        const BASE_PATH = window.location.pathname.startsWith('/attendance-tracker') ? '/attendance-tracker' : '';
+        const API_BASE_URL = window.location.origin + BASE_PATH;
 
         // User data store
         let currentUser = null;
@@ -1099,7 +1100,7 @@
         async function checkAuth() {
             const token = localStorage.getItem('userToken');
             if (!token) {
-                window.location.href = '/login';
+                window.location.href = ${BASE_PATH}/login;
                 return false;
             }
 
@@ -1677,7 +1678,7 @@
             localStorage.removeItem('currentUser');
             localStorage.removeItem('userRole');
 
-            window.location.href = '/login';
+            window.location.href = ${BASE_PATH}/login;
         }
 
         // Initialize dashboard

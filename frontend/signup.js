@@ -12,7 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const submitBtn = document.getElementById('signup-btn');
     const messageEl = document.getElementById('message');
 
-    const API_BASE_URL = window.location.origin;
+    const BASE_PATH = window.location.pathname.startsWith('/attendance-tracker') ? '/attendance-tracker' : '';
+    const API_BASE_URL = window.location.origin + BASE_PATH;
 
     // Helper to fetch and populate dropdowns
     async function populateDropdowns() {
@@ -129,7 +130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (response.ok) {
                 showMessage('Account created successfully! Redirecting to login...', 'success');
                 setTimeout(() => {
-                    window.location.href = '/login';
+                    window.location.href = `${BASE_PATH}/login`;
                 }, 2000);
             } else {
                 showMessage(data.message || 'Registration failed. Please try again.', 'error');
