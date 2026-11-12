@@ -996,6 +996,30 @@ app.post('/api/logs', async (req, res) => {
 
         const internalUserId = userResults[0].user_id;
 
+        // Anti-duplicate protection: Ignore taps for the same user within 5 seconds
+        const [recentLog] = await promisePool.query(
+            'SELECT status, date_logged FROM Logging WHERE user_id = ? AND date_logged >= DATE_SUB(NOW(), INTERVAL 5 SECOND) ORDER BY date_logged DESC LIMIT 1',
+            [internalUserId]
+        );
+        if (recentLog.length > 0) {
+            const [personRows] = await promisePool.query(`
+                SELECT p.full_name, p.email, r.role_name, gl.lab_name, i.dlsu_idnumber
+                FROM Person p
+                LEFT JOIN Role r ON p.role_id = r.role_id
+                LEFT JOIN GKLab gl ON p.lab_id = gl.lab_id
+                LEFT JOIN ID i ON p.unique_id = i.unique_id
+                WHERE p.user_id = ?
+            `, [internalUserId]);
+
+            return res.json({
+                success: true,
+                duplicate: true,
+                status: recentLog[0].status,
+                message: `Duplicate tap ignored (cooldown active: ${recentLog[0].status})`,
+                user: personRows[0] || {}
+            });
+        }
+
 // Expire a stale session first, so this tap becomes a fresh LOGIN
         const closed = await closeStaleSessions(internalUserId);
 
