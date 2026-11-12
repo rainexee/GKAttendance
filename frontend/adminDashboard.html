@@ -1041,6 +1041,81 @@
         </div>
     </div>
 
+    <!-- Edit User & RFID Card Modal -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; color: #f1f5f9; font-size: 1.15rem;">
+                    <i class="fas fa-id-card" style="color: #3b82f6;"></i> Edit User & RFID Card
+                </h3>
+                <button type="button" onclick="closeEditUserModal()" style="background: rgba(255,255,255,0.1); border: none; color: #94a3b8; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="editUserForm" onsubmit="saveUserEdit(event)">
+                <input type="hidden" id="editUserId">
+
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size:0.8rem; color:#94a3b8; display:block; margin-bottom:4px;">Full Name *</label>
+                    <input type="text" id="editUserFullName" required placeholder="Full Name">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <div>
+                        <label style="font-size:0.8rem; color:#94a3b8; display:block; margin-bottom:4px;">DLSU ID Number</label>
+                        <input type="text" id="editUserDlsuId" placeholder="e.g. 12208127">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; color:#94a3b8; display:block; margin-bottom:4px;">Username *</label>
+                        <input type="text" id="editUserUsername" required placeholder="Username">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size:0.8rem; color:#94a3b8; display:block; margin-bottom:4px;">Email Address *</label>
+                    <input type="email" id="editUserEmail" required placeholder="Email Address">
+                </div>
+
+                <!-- RFID Card UID Section Highlighted -->
+                <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+                    <label style="font-size:0.85rem; color:#60a5fa; font-weight: 600; display:flex; align-items: center; gap: 6px; margin-bottom:6px;">
+                        <i class="fas fa-microchip"></i> RFID Card UID / Unique ID:
+                    </label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="editUserUniqueId" placeholder="e.g. 2772005086" style="margin-bottom: 0; font-family: monospace; font-size: 1.05rem; letter-spacing: 1px; background: #0f172a; border: 1px solid rgba(59, 130, 246, 0.4);">
+                        <button type="button" onclick="document.getElementById('editUserUniqueId').value=''" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 10px; padding: 0 14px; cursor: pointer; white-space: nowrap;" title="Clear Card UID">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+                    </div>
+                    <p style="font-size: 0.75rem; color: #94a3b8; margin: 8px 0 0 0;">
+                        💡 <strong>Tip:</strong> Tap the physical card on the USB RFID reader or manually type the card number.
+                    </p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div>
+                        <label style="font-size:0.8rem; color:#94a3b8; display:block; margin-bottom:4px;">Lab Group</label>
+                        <select id="editUserLab" style="width: 100%; padding: 10px; border-radius: 10px; border: none; background: #0f172a; color: white;">
+                            <option value="">(None / General)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; color:#94a3b8; display:block; margin-bottom:4px;">Role</label>
+                        <select id="editUserRole" style="width: 100%; padding: 10px; border-radius: 10px; border: none; background: #0f172a; color: white;">
+                            <option value="">(None)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" onclick="closeEditUserModal()">Cancel</button>
+                    <button type="submit" id="saveUserEditBtn" style="background: #3b82f6;"><i class="fas fa-save"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         const BASE_PATH = window.location.pathname.startsWith('/attendance-tracker') ? '/attendance-tracker' : '';
         const API_BASE_URL = window.location.origin + BASE_PATH;
@@ -2044,9 +2119,18 @@
                     <td>${escapeHtml(user.email || 'N/A')}</td>
                     <td><span class="badge-card" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);">${escapeHtml(user.role_name || 'N/A')}</span></td>
                     <td><span class="badge-card" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">${escapeHtml(user.lab_code || user.lab_name || 'N/A')}</span></td>
-                    <td><span class="badge-card">${escapeHtml(String(user.unique_id || 'UID-TEMP'))}</span></td>
-                    <td>${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Active'}</td>
                     <td>
+                        <span class="badge-card" onclick="openEditUserModalById(${user.user_id})" style="cursor: pointer;" title="Click to edit RFID Card UID">
+                            <i class="fas fa-id-card" style="margin-right: 4px; font-size: 0.8rem;"></i>${escapeHtml(String(user.unique_id || 'No Card'))}
+                        </span>
+                    </td>
+                    <td>${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Active'}</td>
+                    <td style="white-space: nowrap;">
+                        <button class="btn-export btn-edit-user"
+                                data-id="${escapeHtml(String(user.user_id))}"
+                                style="padding: 6px 12px; font-size: 0.8rem; background: #3b82f6; margin-right: 6px;">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
                         <button class="btn-export btn-delete-user"
                                 data-id="${escapeHtml(String(user.user_id))}"
                                 data-name="${escapeHtml(user.full_name || 'this user')}"
@@ -2093,25 +2177,178 @@
         }
 
 
+        let cachedLabs = null;
+        let cachedRoles = null;
+
+        async function loadLabsAndRolesForModal() {
+            try {
+                if (!cachedLabs) {
+                    const res = await fetch(`${API_BASE_URL}/api/labs`);
+                    const data = await res.json();
+                    if (data.success) cachedLabs = data.data;
+                }
+                if (!cachedRoles) {
+                    const res = await fetch(`${API_BASE_URL}/api/roles`);
+                    const data = await res.json();
+                    if (data.success) cachedRoles = data.data;
+                }
+                const labSelect = document.getElementById('editUserLab');
+                const roleSelect = document.getElementById('editUserRole');
+                if (labSelect && cachedLabs) {
+                    labSelect.innerHTML = '<option value="">(None / General)</option>' +
+                        cachedLabs.map(l => `<option value="${l.lab_id}">${escapeHtml(l.lab_name)} (${escapeHtml(l.lab_code)})</option>`).join('');
+                }
+                if (roleSelect && cachedRoles) {
+                    roleSelect.innerHTML = '<option value="">(None)</option>' +
+                        cachedRoles.map(r => `<option value="${r.role_id}">${escapeHtml(r.role_name)}</option>`).join('');
+                }
+            } catch (e) {
+                console.error('Error loading labs/roles for modal:', e);
+            }
+        }
+
+        async function openEditUserModalById(userId) {
+            if (personsData.length === 0) await fetchPersons();
+            const user = personsData.find(u => String(u.user_id) === String(userId));
+            if (!user) {
+                alert('User details could not be found.');
+                return;
+            }
+
+            await loadLabsAndRolesForModal();
+
+            document.getElementById('editUserId').value = user.user_id || '';
+            document.getElementById('editUserFullName').value = user.full_name || '';
+            document.getElementById('editUserDlsuId').value = user.dlsu_idnumber || '';
+            document.getElementById('editUserUsername').value = user.username || '';
+            document.getElementById('editUserEmail').value = user.email || '';
+            document.getElementById('editUserUniqueId').value = user.unique_id || '';
+
+            const labSelect = document.getElementById('editUserLab');
+            if (labSelect) labSelect.value = user.lab_id || '';
+
+            const roleSelect = document.getElementById('editUserRole');
+            if (roleSelect) roleSelect.value = user.role_id || '';
+
+            document.getElementById('editUserModal').classList.add('active');
+
+            setTimeout(() => {
+                const rfidInput = document.getElementById('editUserUniqueId');
+                if (rfidInput) rfidInput.focus();
+            }, 150);
+        }
+
+        function closeEditUserModal() {
+            const modal = document.getElementById('editUserModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        async function saveUserEdit(e) {
+            e.preventDefault();
+            const userId = document.getElementById('editUserId').value;
+            const full_name = document.getElementById('editUserFullName').value.trim();
+            const dlsu_idnumber = document.getElementById('editUserDlsuId').value.trim();
+            const username = document.getElementById('editUserUsername').value.trim();
+            const email = document.getElementById('editUserEmail').value.trim();
+            const unique_id = document.getElementById('editUserUniqueId').value.trim();
+            const lab_id = document.getElementById('editUserLab').value || null;
+            const role_id = document.getElementById('editUserRole').value || null;
+
+            if (!full_name || !username || !email) {
+                alert('Full name, username, and email are required fields.');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveUserEditBtn');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            saveBtn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/persons/${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        full_name,
+                        username,
+                        email,
+                        unique_id,
+                        dlsu_idnumber,
+                        lab_id,
+                        role_id
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message || 'User details and RFID code updated successfully!');
+                    closeEditUserModal();
+                    await renderUsersTable();
+                    await renderRolesTable();
+                    await updateStats();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                console.error('Error saving user edit:', err);
+                alert('Network error occurred while updating user.');
+            } finally {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
+        }
+
+        async function promptAssignCard(uid) {
+            if (personsData.length === 0) await fetchPersons();
+            if (personsData.length === 0) {
+                alert('No registered users available to assign this card to.');
+                return;
+            }
+
+            const promptText = `Enter the DLSU ID, Username, or Full Name of the person to link to card UID "${uid}":\n\n` +
+                personsData.map(u => `• ${u.full_name} (${u.username} / ID: ${u.dlsu_idnumber || 'N/A'})`).slice(0, 15).join('\n');
+
+            const targetInput = prompt(promptText);
+            if (!targetInput) return;
+
+            const trimmed = targetInput.trim().toLowerCase();
+            const matchedUser = personsData.find(u => 
+                (u.username && u.username.toLowerCase() === trimmed) ||
+                (u.dlsu_idnumber && String(u.dlsu_idnumber) === trimmed) ||
+                (u.full_name && u.full_name.toLowerCase() === trimmed)
+            );
+
+            if (!matchedUser) {
+                alert(`Could not find a user matching "${targetInput}".`);
+                return;
+            }
+
+            await openEditUserModalById(matchedUser.user_id);
+            document.getElementById('editUserUniqueId').value = uid;
+        }
+
         document.addEventListener('click', (e) => {
-    const btn = e.target.closest('.btn-delete-user');
-    if (btn) deleteUser(btn.dataset.id, btn.dataset.name);
+            const delBtn = e.target.closest('.btn-delete-user');
+            if (delBtn) deleteUser(delBtn.dataset.id, delBtn.dataset.name);
+
+            const editBtn = e.target.closest('.btn-edit-user');
+            if (editBtn) openEditUserModalById(editBtn.dataset.id);
         });
 
         async function deleteUser(userId, fullName) {
             if (!confirm(
-                `Remove ${fullName} from the system?\n\n` +
-                `This permanently deletes their account, card registration, and ALL of their attendance logs. This cannot be undone.`
+                `Remove "${fullName}" from the system?\n\n` +
+                `This permanently deletes their account, RFID registration, and ALL attendance logs. This cannot be undone.`
             )) return;
 
             try {
                 const res = await fetch(`${API_BASE_URL}/api/persons/${userId}`, { method: 'DELETE' });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message);
+                    alert(data.message || 'User removed successfully.');
                     await renderUsersTable();
                     await renderRolesTable();
-                    await renderLogsTable();
+                    if (typeof fetchLogs === 'function') await fetchLogs();
+                    if (typeof renderLogsTable === 'function') await renderLogsTable();
                     await updateStats();
                 } else {
                     alert('Error: ' + data.message);
@@ -2329,7 +2566,14 @@
                         scanStatus.style.background = 'rgba(239,68,68,0.15)';
                         scanStatus.style.color = '#f87171';
                         scanStatus.style.border = '1px solid rgba(239,68,68,0.3)';
-                        scanStatus.textContent = `✗ ${data.message}`;
+                        scanStatus.innerHTML = `
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                                <span>✗ ${escapeHtml(data.message)} (Card: <strong style="font-family:monospace; color:#f87171;">${escapeHtml(uid)}</strong>)</span>
+                                <button type="button" onclick="promptAssignCard('${escapeHtml(uid)}')" style="background: #3b82f6; color: white; border: none; border-radius: 8px; padding: 6px 14px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">
+                                    <i class="fas fa-link"></i> Assign this Card UID to a User
+                                </button>
+                            </div>
+                        `;
                     }
 
                 } catch (err) {

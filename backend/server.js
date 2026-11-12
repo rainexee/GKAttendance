@@ -1187,33 +1187,113 @@ app.get('/api/persons/status', async (req, res) => {
     }
 });
 
-// Update a person
+// Update a person (including RFID unique_id and DLSU ID)
 app.put('/api/persons/:id', async (req, res) => {
-    const { id } = req.params;
-    const { full_name, username, email, lab_id, role_id } = req.body;
+    const userId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(userId)) {
+        return res.status(400).json({ success: false, message: 'Invalid user id' });
+    }
 
+    let { full_name, username, email, lab_id, role_id, unique_id, dlsu_idnumber } = req.body;
+
+    // Sanitize unique_id (RFID Code)
+    if (unique_id !== undefined && unique_id !== null) {
+        unique_id = unique_id.toString().trim().replace(/\s+/g, '');
+        if (unique_id === '') unique_id = null;
+    }
+
+    // Sanitize dlsu_idnumber
+    if (dlsu_idnumber !== undefined && dlsu_idnumber !== null && dlsu_idnumber !== '') {
+        dlsu_idnumber = parseInt(dlsu_idnumber, 10);
+        if (isNaN(dlsu_idnumber)) dlsu_idnumber = null;
+    } else {
+        dlsu_idnumber = null;
+    }
+
+    const conn = await promisePool.getConnection();
     try {
-        await promisePool.query(
-            'UPDATE Person SET full_name = ?, username = ?, email = ?, lab_id = ?, role_id = ? WHERE user_id = ?',
-            [full_name, username, email, lab_id, role_id, id]
+        await conn.beginTransaction();
+
+        // 1. Get current person record
+        const [current] = await conn.query('SELECT * FROM Person WHERE user_id = ?', [userId]);
+        if (current.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        const oldUniqueId = current[0].unique_id;
+
+        // 2. If unique_id is provided, check for conflict with other users
+        if (unique_id) {
+            const [conflict] = await conn.query(
+                'SELECT user_id, full_name, username FROM Person WHERE unique_id = ? AND user_id != ?',
+                [unique_id, userId]
+            );
+            if (conflict.length > 0) {
+                await conn.rollback();
+                return res.status(409).json({
+                    success: false,
+                    message: `This RFID card (${unique_id}) is already assigned to "${conflict[0].full_name || conflict[0].username}". Each card can only belong to one user.`
+                });
+            }
+
+            // 3. Ensure this unique_id exists in the ID table (to satisfy FK constraint)
+            const [idExists] = await conn.query('SELECT unique_id, dlsu_idnumber FROM ID WHERE unique_id = ?', [unique_id]);
+            if (idExists.length === 0) {
+                await conn.query('INSERT INTO ID (unique_id, dlsu_idnumber) VALUES (?, ?)', [unique_id, dlsu_idnumber]);
+            } else if (dlsu_idnumber) {
+                await conn.query('UPDATE ID SET dlsu_idnumber = ? WHERE unique_id = ?', [dlsu_idnumber, unique_id]);
+            }
+        }
+
+        // 4. Update the Person table
+        await conn.query(
+            `UPDATE Person SET
+                full_name = COALESCE(?, full_name),
+                username = COALESCE(?, username),
+                email = COALESCE(?, email),
+                lab_id = ?,
+                role_id = ?,
+                unique_id = ?
+            WHERE user_id = ?`,
+            [
+                full_name || null,
+                username || null,
+                email || null,
+                lab_id ? parseInt(lab_id, 10) : null,
+                role_id ? parseInt(role_id, 10) : null,
+                unique_id || null,
+                userId
+            ]
         );
 
+        // 5. Clean up old unique_id in ID table if it changed and no other person uses it
+        if (oldUniqueId && oldUniqueId !== unique_id) {
+            const [stillUsed] = await conn.query('SELECT user_id FROM Person WHERE unique_id = ?', [oldUniqueId]);
+            if (stillUsed.length === 0) {
+                await conn.query('DELETE FROM ID WHERE unique_id = ?', [oldUniqueId]);
+            }
+        }
+
+        await conn.commit();
         refreshCsvOnDisk();
 
         res.status(200).json({
             success: true,
-            message: 'Person updated successfully'
+            message: 'User details and RFID code updated successfully'
         });
     } catch (error) {
+        await conn.rollback();
         console.error('Error updating person:', error);
         res.status(500).json({
             success: false,
-            message: 'Error updating person'
+            message: 'Error updating user: ' + error.message
         });
+    } finally {
+        conn.release();
     }
 });
 
-// Delete a person
+// Delete a person (permanently remove user, their card, logs, and assignments)
 app.delete('/api/persons/:id', async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) {
@@ -1224,30 +1304,38 @@ app.delete('/api/persons/:id', async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const [rows] = await conn.query('SELECT unique_id FROM Person WHERE user_id = ?', [id]);
+        const [rows] = await conn.query('SELECT unique_id, username FROM Person WHERE user_id = ?', [id]);
         if (rows.length === 0) {
             await conn.rollback();
             return res.status(404).json({ success: false, message: 'User not found' });
         }
         const uniqueId = rows[0].unique_id;
+        const username = rows[0].username;
 
+        // Cascade delete child records to guarantee no foreign key constraint errors
+        await conn.query('DELETE FROM EventAssignments WHERE user_id = ?', [id]);
+        await conn.query('DELETE FROM LabSchedule WHERE user_id = ?', [id]);
         await conn.query('DELETE FROM Logging WHERE user_id = ?', [id]);
-        await conn.query('DELETE FROM Person WHERE user_id = ?', [id]);   // LabSchedule + EventAssignments cascade
+        if (username) {
+            await conn.query('DELETE FROM Admins WHERE username = ?', [username]);
+        }
+        await conn.query('DELETE FROM Person WHERE user_id = ?', [id]);
+
         if (uniqueId) {
-            // free the card/DLSU ID for re-registration, unless another person still uses it
-            await conn.query(
-                'DELETE FROM ID WHERE unique_id = ? AND unique_id NOT IN (SELECT unique_id FROM Person WHERE unique_id IS NOT NULL)',
-                [uniqueId]
-            );
+            // Free the card/DLSU ID for re-registration, unless another person still uses it
+            const [stillUsed] = await conn.query('SELECT user_id FROM Person WHERE unique_id = ?', [uniqueId]);
+            if (stillUsed.length === 0) {
+                await conn.query('DELETE FROM ID WHERE unique_id = ?', [uniqueId]);
+            }
         }
 
         await conn.commit();
         refreshCsvOnDisk();
-        res.status(200).json({ success: true, message: 'User removed successfully' });
+        res.status(200).json({ success: true, message: 'User removed successfully from the system' });
     } catch (error) {
         await conn.rollback();
         console.error('Error deleting person:', error);
-        res.status(500).json({ success: false, message: 'Error removing user' });
+        res.status(500).json({ success: false, message: 'Error removing user: ' + error.message });
     } finally {
         conn.release();
     }
