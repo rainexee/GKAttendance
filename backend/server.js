@@ -996,9 +996,9 @@ app.post('/api/logs', async (req, res) => {
 
         const internalUserId = userResults[0].user_id;
 
-        // Anti-duplicate protection: Ignore taps for the same user within 5 seconds
+        // Anti-duplicate protection: Ignore taps for the same user within 3 seconds
         const [recentLog] = await promisePool.query(
-            'SELECT status, date_logged FROM Logging WHERE user_id = ? AND date_logged >= DATE_SUB(NOW(), INTERVAL 5 SECOND) ORDER BY date_logged DESC LIMIT 1',
+            'SELECT status, date_logged FROM Logging WHERE user_id = ? AND date_logged >= DATE_SUB(NOW(), INTERVAL 3 SECOND) ORDER BY date_logged DESC LIMIT 1',
             [internalUserId]
         );
         if (recentLog.length > 0) {
