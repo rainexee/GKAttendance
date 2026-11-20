@@ -4,21 +4,30 @@
 #include "EspUsbHost.h"
 
 // ================= USER CONFIGURATION =================
-const char* WIFI_SSID     = "ADD WIFI NETWORK HERE";
-const char* WIFI_PASSWORD = "ADD WIFI PASSWORD HERE";
+const char* WIFI_SSID     = "TP-Link_D106";
+const char* WIFI_PASSWORD = "29483181";
 
-// Your Debian Server Attendance Endpoint:
-const char* SERVER_URL    = "http://10.50.180.12:3000/api/logs";
+// Debian Server Attendance Endpoint:
+const char* SERVER_URL    = "http://10.50.180.34:3000/api/logs";
 
 #define LED_PIN 2 // Built-in LED on ESP32
+
+// 5-second anti-duplicate debounce delay
+const unsigned long COOLDOWN_MS = 3000;
 // ======================================================
 
 EspUsbHost usb;
-String scannedCard = "";
+String scannedCardBuffer = "";
+volatile bool newCardReady = false;
+String cardToSend = "";
+
+// Debounce Tracking Variables
+unsigned long lastTapTime = 0;
+String lastTappedCard = "";
 
 void sendCardToServer(String cardUid) {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[Wi-Fi] Not connected. Reconnecting...");
+    Serial.println("[Wi-Fi] Not connected. Attempting reconnect...");
     WiFi.reconnect();
     return;
   }
@@ -51,29 +60,44 @@ void sendCardToServer(String cardUid) {
 
 void setup() {
   Serial.begin(115200);
+  delay(1000);
+
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 
-  // 1. Connect to Office Wi-Fi
+  Serial.println("\n--- ESP32-S3 RFID Attendance Reader Starting ---");
+
+  // 1. Connect to Wi-Fi
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
-  while (WiFi.status() != WL_CONNECTED) {
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 25) {
     delay(500);
     Serial.print(".");
+    attempts++;
   }
-  Serial.println("\n[Wi-Fi Connected!] ESP32 IP: " + WiFi.localIP().toString());
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n[Wi-Fi Connected!] ESP32 IP: " + WiFi.localIP().toString());
+  } else {
+    Serial.println("\n[Wi-Fi Warning] Could not connect immediately. Will retry in loop.");
+  }
+
+  delay(500);
 
   // 2. Setup USB Host for RFID Scanner on Left Port
   usb.onKeyboard([](const EspUsbHostKeyboardEvent &event) {
     if (event.pressed) {
       if (event.ascii == '\r' || event.ascii == '\n' || event.keycode == 0x28) {
-        if (scannedCard.length() > 0) {
-          Serial.println("\n[CARD TAPPED]: " + scannedCard);
-          sendCardToServer(scannedCard);
-          scannedCard = "";
+        if (scannedCardBuffer.length() > 0 && !newCardReady) {
+          cardToSend = scannedCardBuffer;
+          newCardReady = true;
+          scannedCardBuffer = "";
         }
       } else if (event.ascii >= ' ' && event.ascii <= '~') {
-        scannedCard += (char)event.ascii;
+        scannedCardBuffer += (char)event.ascii;
       }
     }
   });
@@ -86,9 +110,33 @@ void setup() {
 }
 
 void loop() {
+  // Main thread safely handles the HTTP request:
+  if (newCardReady) {
+    unsigned long now = millis();
+
+    // 5-second anti-duplicate debounce check
+    if (cardToSend == lastTappedCard && (now - lastTapTime < COOLDOWN_MS)) {
+      unsigned long remainingSec = (COOLDOWN_MS - (now - lastTapTime)) / 1000 + 1;
+      Serial.printf("[COOLDOWN] Duplicate tap for card %s ignored (wait %lu s).\n", cardToSend.c_str(), remainingSec);
+
+      // Fast double blink on LED to signal "ignored / wait"
+      digitalWrite(LED_PIN, HIGH); delay(60); digitalWrite(LED_PIN, LOW); delay(60);
+      digitalWrite(LED_PIN, HIGH); delay(60); digitalWrite(LED_PIN, LOW);
+    } else {
+      lastTappedCard = cardToSend;
+      lastTapTime = now;
+      Serial.println("\n[CARD TAPPED]: " + cardToSend);
+      sendCardToServer(cardToSend);
+    }
+
+    newCardReady = false;
+    cardToSend = "";
+  }
+
   if (WiFi.status() != WL_CONNECTED) {
     WiFi.reconnect();
     delay(5000);
   }
-  delay(10);
+
+  delay(20);
 }
